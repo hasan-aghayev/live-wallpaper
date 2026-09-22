@@ -12,11 +12,16 @@ namespace LiveWallpaper;
 public sealed class WallpaperWindow : Form
 {
     private MpvPlayer? _mpvPlayer;
+    private volatile bool _isPlaying;
     private bool _isOverlayEnabled;
     private Color _overlayColor = Color.Black;
     private double _overlayOpacity = 0.35;
 
-    public bool IsPlaying { get; private set; }
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        private set => _isPlaying = value;
+    }
     public bool IsDeepSleeping { get; private set; }
     public string? CurrentVideoPath { get; private set; }
 
@@ -83,7 +88,11 @@ public sealed class WallpaperWindow : Form
             if (_mpvPlayer == null)
             {
                 _mpvPlayer = new MpvPlayer(Handle);
-                _mpvPlayer.PlaybackError += error => OnPlaybackError?.Invoke(error);
+                _mpvPlayer.PlaybackError += error =>
+                {
+                    IsPlaying = false;
+                    OnPlaybackError?.Invoke(error);
+                };
             }
 
             _mpvPlayer.Start(filePath, volume, isMuted, stretchMode, _isOverlayEnabled, _overlayColor, _overlayOpacity);
@@ -107,8 +116,8 @@ public sealed class WallpaperWindow : Form
         if (_mpvPlayer == null)
             return;
 
-        _mpvPlayer?.Play();
-        IsPlaying = true;
+        _mpvPlayer.Play();
+        IsPlaying = _mpvPlayer.IsRunning;
     }
 
     public void Pause()

@@ -160,20 +160,18 @@ public partial class MainWindow : Window
     {
         DropZone.BorderBrush = (System.Windows.Media.Brush)FindResource("UiBorderBrush");
 
-        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
+            && e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] files
+            && files.Length > 0)
         {
-            string[] files = (string[])e.Data.GetData(System.Windows.DataFormats.FileDrop);
-            if (files.Length > 0)
+            if (VideoFileValidator.IsSupported(files[0]))
             {
-                if (VideoFileValidator.IsSupported(files[0]))
-                {
-                    SelectVideoFile(files[0]);
-                }
-                else
-                {
-                    MessageBox.Show($"Please select a supported video file ({VideoFileValidator.SupportedExtensionsDescription}).",
-                                    "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
+                SelectVideoFile(files[0]);
+            }
+            else
+            {
+                MessageBox.Show($"Please select a supported video file ({VideoFileValidator.SupportedExtensionsDescription}).",
+                                "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
@@ -258,7 +256,9 @@ public partial class MainWindow : Window
     {
         UpdateStatus(false, "Error");
         BtnPauseResume.IsEnabled = false;
+        BtnPauseResume.Content = "Resume";
         BtnStop.IsEnabled = _wallpaperWindow != null;
+        _trayManager.SetPlayState(false);
         TxtFooterMessage.Text = $"Error: {message}";
         _trayManager.ShowNotification("HaS Live Wallpaper", message);
     }
@@ -330,7 +330,9 @@ public partial class MainWindow : Window
 
         UpdateStatus(false, "Inactive");
         BtnPauseResume.IsEnabled = false;
+        BtnPauseResume.Content = "Pause";
         BtnStop.IsEnabled = false;
+        _trayManager.SetPlayState(false);
         TxtFooterMessage.Text = "Wallpaper stopped";
     }
 

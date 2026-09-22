@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 
@@ -68,21 +69,46 @@ public static class ConfigManager
     {
         lock (_saveLock)
         {
+            _debounceTimer?.Dispose();
+            _debounceTimer = null;
+
             if (_pendingJson == null)
                 return;
 
             string json = _pendingJson;
-            _pendingJson = null;
+            string tempPath = AppPaths.ConfigFilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
 
             try
             {
                 AppPaths.EnsureDataDirectories();
-                string tempPath = AppPaths.ConfigFilePath + ".tmp";
-                File.WriteAllText(tempPath, json);
+                using (var stream = new FileStream(
+                    tempPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 4096,
+                    FileOptions.WriteThrough))
+                using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                {
+                    writer.Write(json);
+                    writer.Flush();
+                    stream.Flush(flushToDisk: true);
+                }
+
                 File.Move(tempPath, AppPaths.ConfigFilePath, true);
+                _pendingJson = null;
             }
             catch (Exception ex)
             {
+                try
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                }
+                catch { }
+
+                // Preserve the latest settings so a later save or app
+                // shutdown can retry instead of silently losing the changes.
                 DesktopManager.Log($"ConfigManager.Save failed: {ex.Message}");
             }
         }

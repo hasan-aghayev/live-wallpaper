@@ -47,13 +47,15 @@ try {
         $headers['Authorization'] = "Bearer $GitHubToken"
     }
     $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers
+    # Prefer the baseline x64 build so the packaged app also runs on older
+    # processors that do not support the optional v3 instruction set.
     $asset = $release.assets |
-        Where-Object { $_.name -match '^mpv-x86_64-v3-.*\.(7z|zip)$' } |
+        Where-Object { $_.name -match '^mpv-x86_64-(?!v3-).*\.(7z|zip)$' } |
         Select-Object -First 1
 
     if ($null -eq $asset) {
         $asset = $release.assets |
-            Where-Object { $_.name -match '^mpv-x86_64-.*\.(7z|zip)$' } |
+            Where-Object { $_.name -match '^mpv-x86_64-v3-.*\.(7z|zip)$' } |
             Select-Object -First 1
     }
 

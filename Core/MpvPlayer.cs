@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -39,7 +40,7 @@ public sealed class MpvPlayer : IDisposable
     private bool _currentOverlayEnabled;
     private System.Drawing.Color _currentOverlayColor = System.Drawing.Color.Black;
     private double _currentOverlayOpacity = 0.35;
-    private bool _isDisposed;
+    private volatile bool _isDisposed;
 
     public event Action<string>? PlaybackError;
 
@@ -193,10 +194,20 @@ public sealed class MpvPlayer : IDisposable
         process.Exited += (_, _) =>
         {
             bool isCurrent;
-            lock (_processLock) { isCurrent = ReferenceEquals(_process, process); }
+            int exitCode = -1;
+            lock (_processLock)
+            {
+                isCurrent = ReferenceEquals(_process, process);
+                if (isCurrent)
+                {
+                    try { exitCode = process.ExitCode; }
+                    catch (InvalidOperationException) { }
+                }
+            }
+
             if (isCurrent && !_isDisposed)
             {
-                PlaybackError?.Invoke($"mpv завершил работу с кодом {process.ExitCode}.");
+                PlaybackError?.Invoke($"mpv завершил работу с кодом {exitCode}.");
             }
         };
 
@@ -281,6 +292,7 @@ public sealed class MpvPlayer : IDisposable
             string json = JsonSerializer.Serialize(new { command = commandArgs });
             _commandQueue.TryAdd(json);
         }
+        catch (ObjectDisposedException) { }
         catch (InvalidOperationException) { }
     }
 
@@ -381,6 +393,9 @@ public sealed class MpvPlayer : IDisposable
 
     public void SetOverlay(bool isEnabled, System.Drawing.Color color, double opacity, bool immediate = false)
     {
+        if (_isDisposed)
+            return;
+
         lock (_shaderThrottleLock)
         {
             _pendingOverlayEnabled = isEnabled;
@@ -445,8 +460,35 @@ public sealed class MpvPlayer : IDisposable
         string shaderContent = $"//!HOOK MAIN\n//!BIND HOOKED\n//!DESC HaS Live Wallpaper Overlay\n\nvec4 hook() {{\n    vec4 color = HOOKED_tex(HOOKED_pos);\n    vec4 tint = vec4({r}, {g}, {b}, 1.0);\n    return mix(color, tint, {mix});\n}}\n";
 
         AppPaths.EnsureDataDirectories();
-        File.WriteAllText(AppPaths.OverlayShaderPath, shaderContent, new UTF8Encoding(false));
-        return AppPaths.OverlayShaderPath;
+        string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(shaderContent)));
+        string shaderPath = Path.Combine(AppPaths.ShaderDirectory, $"overlay-{hash}.hook");
+        if (File.Exists(shaderPath))
+            return shaderPath;
+
+        string tempPath = shaderPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(tempPath, shaderContent, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            try
+            {
+                File.Move(tempPath, shaderPath);
+            }
+            catch (IOException) when (File.Exists(shaderPath))
+            {
+                // Another call wrote the same content at the same time.
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+            catch { }
+        }
+
+        return shaderPath;
     }
 
     public void Stop()

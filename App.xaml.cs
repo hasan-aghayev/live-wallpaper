@@ -7,6 +7,7 @@ namespace LiveWallpaper;
 public partial class App : System.Windows.Application
 {
     private static System.Threading.Mutex? _mutex;
+    private static bool _ownsMutex;
 
     public static bool IsBackgroundLaunch { get; private set; }
 
@@ -25,6 +26,7 @@ public partial class App : System.Windows.Application
         try
         {
             _mutex = new System.Threading.Mutex(true, mutexName, out bool createdNew);
+            _ownsMutex = createdNew;
             DesktopManager.Log($"App.OnStartup: createdNew = {createdNew}");
 
             if (!createdNew)
@@ -67,13 +69,20 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        ConfigManager.SaveImmediately();
+
         try
         {
-            ConfigManager.SaveImmediately();
-            _mutex?.ReleaseMutex();
-            _mutex?.Dispose();
+            if (_ownsMutex)
+                _mutex?.ReleaseMutex();
         }
         catch { }
+        finally
+        {
+            _ownsMutex = false;
+            _mutex?.Dispose();
+            _mutex = null;
+        }
 
         DesktopManager.FlushLogs();
 

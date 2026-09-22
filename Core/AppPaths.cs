@@ -20,7 +20,6 @@ public static class AppPaths
     public static string ConfigFilePath => Path.Combine(DataDirectory, "config.json");
     public static string LogFilePath => Path.Combine(DataDirectory, "debug.log");
     public static string ShaderDirectory => Path.Combine(DataDirectory, "shaders");
-    public static string OverlayShaderPath => Path.Combine(ShaderDirectory, "overlay.hook");
 
     public static void EnsureDataDirectories()
     {

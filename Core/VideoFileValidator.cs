@@ -14,9 +14,26 @@ public static class VideoFileValidator
 
     public static bool IsSupported(string? path)
     {
-        return !string.IsNullOrWhiteSpace(path)
-            && File.Exists(path)
-            && SupportedExtensions.Contains(Path.GetExtension(path));
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        try
+        {
+            return File.Exists(path)
+                && SupportedExtensions.Contains(Path.GetExtension(path));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+        catch (PathTooLongException)
+        {
+            return false;
+        }
     }
 
     public static string SupportedExtensionsDescription =>
