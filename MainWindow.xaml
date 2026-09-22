@@ -9,7 +9,7 @@
         Foreground="{StaticResource UiTextBrush}"
         FontFamily="{StaticResource UiFont}">
 
-    <Grid Margin="32,26,32,24">
+    <Grid Margin="40,30,40,28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -68,9 +68,9 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource UiCardInset}" Margin="0,14,0,0">
+                <Border Style="{StaticResource UiCardInset}" Margin="0,16,0,0">
                     <StackPanel>
-                        <TextBlock Text="CURRENT VIDEO" FontSize="10" FontWeight="SemiBold"
+                        <TextBlock Text="VIDEO" FontSize="10" FontWeight="SemiBold"
                                    FontFamily="{StaticResource UiFontMono}"
                                    Foreground="{StaticResource UiTextMutedBrush}"/>
                         <TextBlock x:Name="TxtSelectedFileName" Text="No video selected"
@@ -84,7 +84,7 @@
                 </Border>
 
                 <!-- Main actions -->
-                <Grid Margin="0,18,0,0">
+                <Grid Margin="8,20,8,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -159,9 +159,6 @@
                                         <CheckBox x:Name="ChkEnableOverlay" Content="Desktop dimming"
                                                   Style="{StaticResource UiCheckBox}"
                                                   Checked="ChkEnableOverlay_Changed" Unchecked="ChkEnableOverlay_Changed"/>
-                                        <TextBlock Text="Improve desktop icon contrast" FontSize="11"
-                                                   Foreground="{StaticResource UiTextMutedBrush}"
-                                                   Margin="27,4,0,0"/>
                                     </StackPanel>
                                     <Border Grid.Column="1" x:Name="BorderCurrentColorPreview" Width="22" Height="22"
                                             CornerRadius="11" BorderBrush="{StaticResource UiBorderStrongBrush}"
@@ -195,14 +192,15 @@
                                     <TextBlock Grid.Column="0" Text="Color" FontSize="12"
                                                Foreground="{StaticResource UiTextSecondaryBrush}"
                                                VerticalAlignment="Center" Margin="0,0,18,0"/>
-                                    <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <WrapPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,8,0">
                                         <Button Content="Black" Style="{StaticResource UiChipButton}" Tag="#000000" Click="BtnColorPreset_Click"/>
                                         <Button Content="Slate" Style="{StaticResource UiChipButton}" Tag="#0F172A" Click="BtnColorPreset_Click"/>
                                         <Button Content="Navy" Style="{StaticResource UiChipButton}" Tag="#0A192F" Click="BtnColorPreset_Click"/>
                                         <Button Content="Cyber" Style="{StaticResource UiChipButton}" Tag="#1E1035" Click="BtnColorPreset_Click"/>
                                         <Button Content="Emerald" Style="{StaticResource UiChipButton}" Tag="#062419" Click="BtnColorPreset_Click"/>
                                         <Button Content="Custom" Style="{StaticResource UiButtonSecondary}" Padding="14,0"
-                                                Height="32" FontSize="11" Click="BtnCustomColor_Click"/>
+                                                MinWidth="88" Height="32" FontSize="11" Margin="2,0,0,0"
+                                                Click="BtnCustomColor_Click"/>
                                     </WrapPanel>
                                 </Grid>
                             </StackPanel>
