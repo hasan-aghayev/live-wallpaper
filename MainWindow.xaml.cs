@@ -246,9 +246,9 @@ public partial class MainWindow : Window
             _wallpaperWindow = null;
         }
 
-        DesktopManager.RefreshDesktop();
+        Task.Run(() => DesktopManager.RefreshDesktop());
 
-        UpdateStatus(false, "Stopped");
+        UpdateStatus(false, "Wallpaper Inactive");
         BtnPauseResume.IsEnabled = false;
         BtnStop.IsEnabled = false;
         TxtFooterMessage.Text = "Live wallpaper stopped. Standard desktop restored.";
@@ -384,6 +384,7 @@ public partial class MainWindow : Window
     private void ExitApplication()
     {
         _isExiting = true;
+        ConfigManager.SaveImmediately();
         StopWallpaper();
         MpvPlayer.KillAllOrphanInstances();
         _trayManager.Dispose();
@@ -418,7 +419,7 @@ public partial class MainWindow : Window
         _config.EnableOverlay = isEnabled;
         ConfigManager.Save(_config);
 
-        _wallpaperWindow?.SetOverlay(isEnabled, GetDrawingOverlayColor(), SliderOverlayOpacity.Value / 100.0);
+        _wallpaperWindow?.SetOverlay(isEnabled, GetDrawingOverlayColor(), SliderOverlayOpacity.Value / 100.0, immediate: true);
     }
 
     private void SliderOverlayOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -434,7 +435,7 @@ public partial class MainWindow : Window
             _config.OverlayOpacity = opacity;
             ConfigManager.Save(_config);
 
-            _wallpaperWindow?.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), opacity);
+            _wallpaperWindow?.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), opacity, immediate: false);
         }
     }
 
@@ -470,6 +471,6 @@ public partial class MainWindow : Window
             ChkEnableOverlay.IsChecked = true;
         }
 
-        _wallpaperWindow?.SetOverlay(true, GetDrawingOverlayColor(), SliderOverlayOpacity.Value / 100.0);
+        _wallpaperWindow?.SetOverlay(true, GetDrawingOverlayColor(), SliderOverlayOpacity.Value / 100.0, immediate: true);
     }
 }

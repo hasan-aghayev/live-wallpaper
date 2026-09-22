@@ -21,6 +21,9 @@ public class WallpaperConfig
 public static class ConfigManager
 {
     private static readonly string ConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+    private static readonly object _saveLock = new();
+    private static System.Threading.Timer? _debounceTimer;
+    private static WallpaperConfig? _pendingConfig;
 
     public static WallpaperConfig Load()
     {
@@ -44,15 +47,34 @@ public static class ConfigManager
 
     public static void Save(WallpaperConfig config)
     {
-        try
+        lock (_saveLock)
         {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string json = JsonSerializer.Serialize(config, options);
-            File.WriteAllText(ConfigPath, json);
+            _pendingConfig = config;
+            _debounceTimer?.Dispose();
+            _debounceTimer = new System.Threading.Timer(_ =>
+            {
+                SaveImmediately();
+            }, null, 400, System.Threading.Timeout.Infinite);
         }
-        catch (Exception)
+    }
+
+    public static void SaveImmediately()
+    {
+        lock (_saveLock)
         {
-            // Ignore write errors if permission denied
+            if (_pendingConfig == null)
+                return;
+
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                string json = JsonSerializer.Serialize(_pendingConfig, options);
+                File.WriteAllText(ConfigPath, json);
+            }
+            catch (Exception)
+            {
+                // Ignore write errors if permission denied
+            }
         }
     }
 }

@@ -42,13 +42,13 @@ public class WallpaperWindow : Form
         return DesktopManager.AttachToDesktop(Handle, out _);
     }
 
-    public void SetOverlay(bool isEnabled, Color color, double opacity)
+    public void SetOverlay(bool isEnabled, Color color, double opacity, bool immediate = false)
     {
         _isOverlayEnabled = isEnabled;
         _overlayColor = color;
         _overlayOpacity = opacity;
 
-        _mpvPlayer?.SetOverlay(isEnabled, color, opacity);
+        _mpvPlayer?.SetOverlay(isEnabled, color, opacity, immediate);
     }
 
     public void DetachFromDesktop()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
@@ -17,7 +18,18 @@ public class MpvPlayer : IDisposable
     private Process? _process;
     private NamedPipeClientStream? _pipeClient;
     private StreamWriter? _pipeWriter;
-    private readonly object _lock = new();
+    private readonly object _pipeLock = new();
+
+    private readonly BlockingCollection<string> _commandQueue = new(new ConcurrentQueue<string>());
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Task _commandWorker;
+
+    private readonly object _shaderThrottleLock = new();
+    private System.Threading.Timer? _shaderThrottleTimer;
+    private bool _pendingOverlayEnabled;
+    private System.Drawing.Color _pendingColor = System.Drawing.Color.Black;
+    private double _pendingOpacity = 0.35;
+
     private bool _isDisposed;
     private bool _currentOverlayEnabled;
     private System.Drawing.Color _currentOverlayColor = System.Drawing.Color.Black;
@@ -29,6 +41,7 @@ public class MpvPlayer : IDisposable
     {
         _targetHwnd = targetHwnd;
         _pipeName = $"livewallpaper_mpv_{Guid.NewGuid():N}";
+        _commandWorker = Task.Run(() => ProcessCommands(_cts.Token));
     }
 
     public static string? FindMpvExecutable()
@@ -79,78 +92,75 @@ public class MpvPlayer : IDisposable
 
     public void Start(string videoPath, double volume, bool isMuted, Stretch stretch, bool enableOverlay = false, System.Drawing.Color overlayColor = default, double overlayOpacity = 0.35)
     {
-        lock (_lock)
+        Stop();
+
+        string? mpvExe = FindMpvExecutable();
+        if (mpvExe == null)
         {
-            Stop();
-
-            string? mpvExe = FindMpvExecutable();
-            if (mpvExe == null)
-            {
-                throw new FileNotFoundException("mpv.exe was not found. Please place mpv.exe in the application folder or run scripts/setup-mpv.ps1.");
-            }
-
-            DesktopManager.Log($"MpvPlayer.Start: Using mpv at '{mpvExe}', targeting HWND 0x{_targetHwnd.ToInt64():X}");
-
-            int vol = Math.Clamp((int)(volume * 100), 0, 100);
-            string muteStr = isMuted ? "yes" : "no";
-
-            string keepAspect = stretch == Stretch.Fill ? "no" : "yes";
-            string panscan = stretch == Stretch.UniformToFill ? "1.0" : "0.0";
-
-            var args = new StringBuilder();
-            args.Append($"--wid={_targetHwnd.ToInt64()} ");
-            args.Append($"--input-ipc-server=\\\\.\\pipe\\{_pipeName} ");
-            args.Append("--idle=yes ");
-            args.Append("--loop-file=inf ");
-            args.Append("--no-border ");
-            args.Append("--no-osc ");
-            args.Append("--no-osd-bar ");
-            args.Append("--force-window=immediate ");
-            args.Append("--profile=high-quality ");
-            args.Append("--vo=gpu-next ");
-            args.Append("--gpu-api=d3d11 ");
-            args.Append("--hwdec=auto-safe ");
-            args.Append("--scale=spline36 ");
-            args.Append("--cscale=spline36 ");
-            args.Append("--dscale=mitchell ");
-            args.Append("--dither-depth=auto ");
-            args.Append("--correct-pts=yes ");
-            args.Append("--load-scripts=no ");
-            args.Append($"--keepaspect={keepAspect} ");
-            args.Append($"--panscan={panscan} ");
-            args.Append($"--volume={vol} ");
-            args.Append($"--mute={muteStr} ");
-
-            _currentOverlayEnabled = enableOverlay;
-            _currentOverlayColor = (overlayColor.IsEmpty || overlayColor.A == 0) ? System.Drawing.Color.Black : overlayColor;
-            _currentOverlayOpacity = overlayOpacity;
-
-            if (_currentOverlayEnabled && _currentOverlayOpacity > 0.005)
-            {
-                string shaderPath = EnsureOverlayShaderFile(_currentOverlayColor, _currentOverlayOpacity);
-                string normalized = shaderPath.Replace('\\', '/');
-                args.Append($"--glsl-shader=\"{normalized}\" ");
-            }
-
-            args.Append($"\"{videoPath}\"");
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = mpvExe,
-                Arguments = args.ToString(),
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = false,
-                RedirectStandardError = false,
-                WorkingDirectory = Path.GetDirectoryName(mpvExe) ?? AppDomain.CurrentDomain.BaseDirectory
-            };
-
-            _process = Process.Start(psi);
-            DesktopManager.Log($"mpv.exe started with PID: {_process?.Id}");
-
-            Task.Run(() => ConnectPipe());
+            throw new FileNotFoundException("mpv.exe was not found. Please place mpv.exe in the application folder or run scripts/setup-mpv.ps1.");
         }
+
+        DesktopManager.Log($"MpvPlayer.Start: Using mpv at '{mpvExe}', targeting HWND 0x{_targetHwnd.ToInt64():X}");
+
+        int vol = Math.Clamp((int)(volume * 100), 0, 100);
+        string muteStr = isMuted ? "yes" : "no";
+
+        string keepAspect = stretch == Stretch.Fill ? "no" : "yes";
+        string panscan = stretch == Stretch.UniformToFill ? "1.0" : "0.0";
+
+        var args = new StringBuilder();
+        args.Append($"--wid={_targetHwnd.ToInt64()} ");
+        args.Append($"--input-ipc-server=\\\\.\\pipe\\{_pipeName} ");
+        args.Append("--idle=yes ");
+        args.Append("--loop-file=inf ");
+        args.Append("--no-border ");
+        args.Append("--no-osc ");
+        args.Append("--no-osd-bar ");
+        args.Append("--force-window=immediate ");
+        args.Append("--profile=high-quality ");
+        args.Append("--vo=gpu-next ");
+        args.Append("--gpu-api=d3d11 ");
+        args.Append("--hwdec=auto-safe ");
+        args.Append("--scale=spline36 ");
+        args.Append("--cscale=spline36 ");
+        args.Append("--dscale=mitchell ");
+        args.Append("--dither-depth=auto ");
+        args.Append("--correct-pts=yes ");
+        args.Append("--load-scripts=no ");
+        args.Append($"--keepaspect={keepAspect} ");
+        args.Append($"--panscan={panscan} ");
+        args.Append($"--volume={vol} ");
+        args.Append($"--mute={muteStr} ");
+
+        _currentOverlayEnabled = enableOverlay;
+        _currentOverlayColor = (overlayColor.IsEmpty || overlayColor.A == 0) ? System.Drawing.Color.Black : overlayColor;
+        _currentOverlayOpacity = overlayOpacity;
+
+        if (_currentOverlayEnabled && _currentOverlayOpacity > 0.005)
+        {
+            string shaderPath = EnsureOverlayShaderFile(_currentOverlayColor, _currentOverlayOpacity);
+            string normalized = shaderPath.Replace('\\', '/');
+            args.Append($"--glsl-shader=\"{normalized}\" ");
+        }
+
+        args.Append($"\"{videoPath}\"");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = mpvExe,
+            Arguments = args.ToString(),
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = false,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
+            WorkingDirectory = Path.GetDirectoryName(mpvExe) ?? AppDomain.CurrentDomain.BaseDirectory
+        };
+
+        _process = Process.Start(psi);
+        DesktopManager.Log($"mpv.exe started with PID: {_process?.Id}");
+
+        Task.Run(() => ConnectPipe());
     }
 
     private void ConnectPipe()
@@ -164,34 +174,19 @@ public class MpvPlayer : IDisposable
 
                 try
                 {
-                    var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
+                    var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.Out);
                     client.Connect(250);
-                    lock (_lock)
+                    lock (_pipeLock)
                     {
                         _pipeClient = client;
-                        _pipeWriter = new StreamWriter(client, Encoding.UTF8) { AutoFlush = true };
+                        _pipeWriter = new StreamWriter(client, new UTF8Encoding(false)) { AutoFlush = true };
                     }
-                    DesktopManager.Log("MpvPlayer: Named pipe connected successfully");
+                    DesktopManager.Log("MpvPlayer: Named pipe connected (Write-Only)");
 
-                    // Drain pipe responses in background so the pipe buffer never blocks
-                    Task.Run(() =>
-                    {
-                        try
-                        {
-                            using var reader = new StreamReader(client, Encoding.UTF8, false, 1024, leaveOpen: true);
-                            while (!_isDisposed && client.IsConnected)
-                            {
-                                string? line = reader.ReadLine();
-                                if (line == null) break;
-                            }
-                        }
-                        catch { }
-                    });
-
-                    // Sync overlay state once pipe is active
+                    // Re-sync overlay state once pipe is ready
                     if (_currentOverlayEnabled && _currentOverlayOpacity > 0.005)
                     {
-                        SetOverlay(true, _currentOverlayColor, _currentOverlayOpacity);
+                        SetOverlay(true, _currentOverlayColor, _currentOverlayOpacity, immediate: true);
                     }
 
                     return;
@@ -213,24 +208,43 @@ public class MpvPlayer : IDisposable
         }
     }
 
-    public void SendCommand(params object[] commandArgs)
+    private void ProcessCommands(CancellationToken ct)
     {
-        lock (_lock)
+        try
         {
-            if (_pipeWriter == null || _pipeClient == null || !_pipeClient.IsConnected)
-                return;
+            foreach (var json in _commandQueue.GetConsumingEnumerable(ct))
+            {
+                if (ct.IsCancellationRequested)
+                    break;
 
-            try
-            {
-                string json = JsonSerializer.Serialize(new { command = commandArgs });
-                _pipeWriter.WriteLine(json);
-                DesktopManager.Log($"MpvPlayer IPC -> {json}");
-            }
-            catch (Exception ex)
-            {
-                DesktopManager.Log($"MpvPlayer.SendCommand exception: {ex.Message}");
+                lock (_pipeLock)
+                {
+                    if (_pipeWriter != null && _pipeClient != null && _pipeClient.IsConnected)
+                    {
+                        try
+                        {
+                            _pipeWriter.WriteLine(json);
+                        }
+                        catch { }
+                    }
+                }
             }
         }
+        catch (OperationCanceledException) { }
+        catch { }
+    }
+
+    public void SendCommand(params object[] commandArgs)
+    {
+        if (_isDisposed)
+            return;
+
+        try
+        {
+            string json = JsonSerializer.Serialize(new { command = commandArgs });
+            _commandQueue.TryAdd(json);
+        }
+        catch { }
     }
 
     public void LoadVideo(string videoPath)
@@ -287,7 +301,7 @@ public class MpvPlayer : IDisposable
 
     public void Stop()
     {
-        lock (_lock)
+        lock (_pipeLock)
         {
             try
             {
@@ -306,28 +320,32 @@ public class MpvPlayer : IDisposable
                 _pipeClient = null;
             }
             catch { }
+        }
 
-            if (_process != null)
+        var proc = _process;
+        _process = null;
+        if (proc != null)
+        {
+            Task.Run(() =>
             {
                 try
                 {
-                    if (!_process.HasExited)
+                    if (!proc.HasExited)
                     {
-                        if (!_process.WaitForExit(800))
+                        if (!proc.WaitForExit(400))
                         {
-                            _process.Kill();
+                            proc.Kill();
                         }
                     }
                 }
                 catch { }
                 finally
                 {
-                    _process.Dispose();
-                    _process = null;
+                    proc.Dispose();
                 }
-            }
-            DesktopManager.Log("MpvPlayer stopped");
+            });
         }
+        DesktopManager.Log("MpvPlayer stopped");
     }
 
     public void Dispose()
@@ -336,6 +354,23 @@ public class MpvPlayer : IDisposable
             return;
 
         _isDisposed = true;
+
+        try
+        {
+            _shaderThrottleTimer?.Dispose();
+            _shaderThrottleTimer = null;
+        }
+        catch { }
+
+        try
+        {
+            _cts.Cancel();
+            _commandQueue.CompleteAdding();
+            _cts.Dispose();
+            _commandQueue.Dispose();
+        }
+        catch { }
+
         Stop();
         GC.SuppressFinalize(this);
     }
@@ -364,47 +399,77 @@ vec4 hook() {{
 ";
         string shaderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "overlay.hook");
         using (var fs = new FileStream(shaderPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
-        using (var sw = new StreamWriter(fs, Encoding.UTF8))
+        using (var sw = new StreamWriter(fs, new UTF8Encoding(false)))
         {
             sw.Write(shaderContent);
         }
         return shaderPath;
     }
 
-    public void SetOverlay(bool isEnabled, System.Drawing.Color color, double opacity)
+    public void SetOverlay(bool isEnabled, System.Drawing.Color color, double opacity, bool immediate = false)
     {
-        lock (_lock)
+        lock (_shaderThrottleLock)
         {
             if (color.IsEmpty || color.A == 0)
             {
                 color = System.Drawing.Color.Black;
             }
 
-            _currentOverlayEnabled = isEnabled;
-            _currentOverlayColor = color;
-            _currentOverlayOpacity = opacity;
+            _pendingOverlayEnabled = isEnabled;
+            _pendingColor = color;
+            _pendingOpacity = opacity;
 
-            if (_pipeWriter == null || _pipeClient == null || !_pipeClient.IsConnected)
-                return;
+            if (immediate)
+            {
+                _shaderThrottleTimer?.Dispose();
+                _shaderThrottleTimer = null;
+                ApplyOverlayInternal();
+            }
+            else
+            {
+                if (_shaderThrottleTimer == null)
+                {
+                    _shaderThrottleTimer = new System.Threading.Timer(_ =>
+                    {
+                        lock (_shaderThrottleLock)
+                        {
+                            _shaderThrottleTimer?.Dispose();
+                            _shaderThrottleTimer = null;
+                            ApplyOverlayInternal();
+                        }
+                    }, null, 40, Timeout.Infinite);
+                }
+            }
+        }
+    }
 
-            if (!isEnabled || opacity <= 0.005)
-            {
-                SendCommand("change-list", "glsl-shaders", "clr", "");
-                DesktopManager.Log("MpvPlayer: Cleared overlay shader");
-                return;
-            }
+    private void ApplyOverlayInternal()
+    {
+        bool isEnabled = _pendingOverlayEnabled;
+        var color = _pendingColor;
+        double opacity = _pendingOpacity;
 
-            try
-            {
-                string shaderPath = EnsureOverlayShaderFile(color, opacity);
-                string normalizedPath = shaderPath.Replace('\\', '/');
-                SendCommand("change-list", "glsl-shaders", "set", normalizedPath);
-                DesktopManager.Log($"MpvPlayer: Applied overlay shader (Color: {color.Name}, Opacity: {opacity:P0})");
-            }
-            catch (Exception ex)
-            {
-                DesktopManager.Log($"MpvPlayer.SetOverlay error: {ex.Message}");
-            }
+        _currentOverlayEnabled = isEnabled;
+        _currentOverlayColor = color;
+        _currentOverlayOpacity = opacity;
+
+        if (!isEnabled || opacity <= 0.005)
+        {
+            SendCommand("change-list", "glsl-shaders", "clr", "");
+            DesktopManager.Log("MpvPlayer: Cleared overlay shader");
+            return;
+        }
+
+        try
+        {
+            string shaderPath = EnsureOverlayShaderFile(color, opacity);
+            string normalizedPath = shaderPath.Replace('\\', '/');
+            SendCommand("change-list", "glsl-shaders", "set", normalizedPath);
+            DesktopManager.Log($"MpvPlayer: Applied overlay shader (Color: {color.Name}, Opacity: {opacity:P0})");
+        }
+        catch (Exception ex)
+        {
+            DesktopManager.Log($"MpvPlayer.SetOverlay error: {ex.Message}");
         }
     }
 

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace LiveWallpaper.Core;
@@ -135,12 +137,33 @@ public static class DesktopManager
     private const uint RDW_ALLCHILDREN = 0x0080;
     private const uint RDW_UPDATENOW = 0x0100;
 
+    private static readonly BlockingCollection<string> _logQueue = new(new ConcurrentQueue<string>());
+
+    static DesktopManager()
+    {
+        Task.Run(() =>
+        {
+            try
+            {
+                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log");
+                foreach (var line in _logQueue.GetConsumingEnumerable())
+                {
+                    try
+                    {
+                        File.AppendAllText(path, line + Environment.NewLine);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        });
+    }
+
     public static void Log(string message)
     {
         try
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log");
-            File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}");
+            _logQueue.TryAdd($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
         }
         catch { }
     }
