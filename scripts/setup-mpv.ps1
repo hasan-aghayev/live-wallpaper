@@ -1,10 +1,14 @@
 [CmdletBinding()]
 param(
-    [string]$DestinationDirectory = (Split-Path -Parent $PSScriptRoot),
+    [string]$DestinationDirectory = '',
     [string]$GitHubToken = $env:GITHUB_TOKEN
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($DestinationDirectory)) {
+    $DestinationDirectory = Split-Path -Parent $PSScriptRoot
+}
 
 if (-not [Environment]::Is64BitOperatingSystem) {
     throw 'HaS Live Wallpaper requires 64-bit Windows.'

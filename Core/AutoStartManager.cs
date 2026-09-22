@@ -28,13 +28,13 @@ public static class AutoStartManager
         return false;
     }
 
-    public static void SetAutoStart(bool enable)
+    public static bool SetAutoStart(bool enable)
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, true);
+            using var key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath, true);
             if (key == null)
-                return;
+                return false;
 
             if (enable)
             {
@@ -49,10 +49,14 @@ public static class AutoStartManager
                     key.DeleteValue(AppName, false);
                 }
             }
+
+            bool isEnabled = IsAutoStartEnabled();
+            return isEnabled == enable;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Ignored
+            DesktopManager.Log($"AutoStartManager.SetAutoStart({enable}) failed: {ex.Message}");
+            return false;
         }
     }
 }

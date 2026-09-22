@@ -1,11 +1,14 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Release',
-    [string]$OutputDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist')
+    [string]$OutputDirectory = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $rootDirectory = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path (Split-Path -Parent $PSScriptRoot) 'dist'
+}
 $stageDirectory = Join-Path $rootDirectory 'artifacts\publish'
 $projectFile = Join-Path $rootDirectory 'LiveWallpaper.csproj'
 $outputDirectory = [IO.Path]::GetFullPath($OutputDirectory)

@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     private WallpaperWindow? _wallpaperWindow;
     private string? _selectedVideoPath;
     private bool _isExiting;
-    private bool _isInitializing;
+    private bool _isInitializing = true;
 
     public MainWindow()
     {
@@ -39,8 +39,6 @@ public partial class MainWindow : Window
 
         _config = ConfigManager.Load();
         _trayManager = new TrayManager();
-        _isInitializing = true;
-
         // Setup Tray callbacks
         _trayManager.OnOpenRequested += () =>
         {
@@ -58,7 +56,9 @@ public partial class MainWindow : Window
         TxtVolumeValue.Text = $"{(int)SliderVolume.Value}%";
         ChkMute.IsChecked = _config.IsMuted;
         ChkMinimizeToTray.IsChecked = _config.MinimizeToTray;
-        ChkAutoStart.IsChecked = AutoStartManager.IsAutoStartEnabled();
+        bool autoStartEnabled = AutoStartManager.IsAutoStartEnabled();
+        ChkAutoStart.IsChecked = autoStartEnabled;
+        _config.AutoStart = autoStartEnabled;
 
         // Select stretch mode in combo
         foreach (ComboBoxItem item in CmbStretch.Items)
@@ -75,6 +75,8 @@ public partial class MainWindow : Window
         SliderOverlayOpacity.Value = _config.OverlayOpacity * 100.0;
         TxtOverlayOpacityValue.Text = $"{(int)SliderOverlayOpacity.Value}%";
         UpdateOverlayPreviewColor(_config.OverlayColor);
+        _trayManager.SetPlayState(false);
+        _trayManager.SetMuteState(_config.IsMuted);
 
         // Restore last video if available. Playback starts after the WPF window
         // has been rendered, otherwise the desktop HWND may not exist yet.
@@ -91,11 +93,22 @@ public partial class MainWindow : Window
     private void MainWindow_ContentRendered(object? sender, EventArgs e)
     {
         ContentRendered -= MainWindow_ContentRendered;
-        if (_config.AutoPlayOnLaunch && VideoFileValidator.IsSupported(_selectedVideoPath))
+        bool hasValidVideo = VideoFileValidator.IsSupported(_selectedVideoPath);
+        if (_config.AutoPlayOnLaunch && hasValidVideo)
         {
             ApplyWallpaper();
-            if (App.IsBackgroundLaunch && _config.MinimizeToTray)
-                Hide();
+        }
+
+        if (App.IsBackgroundLaunch && _config.MinimizeToTray)
+        {
+            if (!hasValidVideo)
+            {
+                _trayManager.ShowNotification(
+                    "HaS Live Wallpaper",
+                    "Автозапуск выполнен, но видео не найдено. Выберите файл в окне приложения.");
+            }
+
+            Hide();
         }
     }
 
@@ -333,13 +346,10 @@ public partial class MainWindow : Window
         if (_isInitializing)
             return;
 
-        if (_wallpaperWindow != null && _config != null)
-        {
-            double vol = SliderVolume.Value / 100.0;
-            _config.Volume = vol;
-            ConfigManager.Save(_config);
-            _wallpaperWindow.SetVolume(vol);
-        }
+        double vol = SliderVolume.Value / 100.0;
+        _config.Volume = vol;
+        ConfigManager.Save(_config);
+        _wallpaperWindow?.SetVolume(vol);
     }
 
     private void ChkMute_Changed(object sender, RoutedEventArgs e)
@@ -376,7 +386,18 @@ public partial class MainWindow : Window
         if (_isInitializing)
             return;
 
-        AutoStartManager.SetAutoStart(true);
+        if (!AutoStartManager.SetAutoStart(true))
+        {
+            _isInitializing = true;
+            ChkAutoStart.IsChecked = false;
+            _isInitializing = false;
+            TxtFooterMessage.Text = "Не удалось включить автозапуск Windows. Проверьте разрешения пользователя.";
+            MessageBox.Show(
+                "Windows не разрешила изменить автозапуск для текущего пользователя.",
+                "Автозапуск не включён", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (_config != null)
         {
             _config.AutoStart = true;
@@ -389,7 +410,18 @@ public partial class MainWindow : Window
         if (_isInitializing)
             return;
 
-        AutoStartManager.SetAutoStart(false);
+        if (!AutoStartManager.SetAutoStart(false))
+        {
+            _isInitializing = true;
+            ChkAutoStart.IsChecked = true;
+            _isInitializing = false;
+            TxtFooterMessage.Text = "Не удалось отключить автозапуск Windows.";
+            MessageBox.Show(
+                "Windows не разрешила удалить запись автозапуска для текущего пользователя.",
+                "Автозапуск не изменён", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         if (_config != null)
         {
             _config.AutoStart = false;
@@ -469,6 +501,9 @@ public partial class MainWindow : Window
 
     private void ChkEnableOverlay_Changed(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing || _config == null)
+            return;
+
         bool isEnabled = ChkEnableOverlay.IsChecked == true;
         _config.EnableOverlay = isEnabled;
         ConfigManager.Save(_config);
@@ -483,14 +518,14 @@ public partial class MainWindow : Window
             TxtOverlayOpacityValue.Text = $"{(int)SliderOverlayOpacity.Value}%";
         }
 
-        if (_config != null)
-        {
-            double opacity = SliderOverlayOpacity.Value / 100.0;
-            _config.OverlayOpacity = opacity;
-            ConfigManager.Save(_config);
+        if (_isInitializing || _config == null)
+            return;
 
-            _wallpaperWindow?.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), opacity, immediate: false);
-        }
+        double opacity = SliderOverlayOpacity.Value / 100.0;
+        _config.OverlayOpacity = opacity;
+        ConfigManager.Save(_config);
+
+        _wallpaperWindow?.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), opacity, immediate: false);
     }
 
     private void BtnColorPreset_Click(object sender, RoutedEventArgs e)

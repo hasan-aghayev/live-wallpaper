@@ -23,6 +23,7 @@ public sealed class MpvPlayer : IDisposable
     private readonly Task _commandWorker;
     private readonly object _pipeLock = new();
     private readonly object _processLock = new();
+    private readonly ManualResetEventSlim _pipeReady = new(false);
 
     private Process? _process;
     private string? _pipeName;
@@ -110,6 +111,7 @@ public sealed class MpvPlayer : IDisposable
         ThrowIfDisposed();
         Stop();
         DrainCommandQueue();
+        _pipeReady.Reset();
 
         string? mpvExe = FindMpvExecutable();
         if (mpvExe == null)
@@ -128,6 +130,15 @@ public sealed class MpvPlayer : IDisposable
         _currentOverlayEnabled = enableOverlay;
         _currentOverlayColor = NormalizeColor(overlayColor);
         _currentOverlayOpacity = Math.Clamp(overlayOpacity, 0.0, 0.9);
+
+        lock (_shaderThrottleLock)
+        {
+            _shaderThrottleTimer?.Dispose();
+            _shaderThrottleTimer = null;
+            _pendingOverlayEnabled = _currentOverlayEnabled;
+            _pendingColor = _currentOverlayColor;
+            _pendingOpacity = _currentOverlayOpacity;
+        }
 
         var startInfo = new ProcessStartInfo
         {
@@ -222,6 +233,7 @@ public sealed class MpvPlayer : IDisposable
 
                         _pipeClient = client;
                         _pipeWriter = new StreamWriter(client, new UTF8Encoding(false)) { AutoFlush = true };
+                        SignalPipeReady();
                     }
 
                     DesktopManager.Log("MpvPlayer: IPC pipe connected");
@@ -251,7 +263,8 @@ public sealed class MpvPlayer : IDisposable
             {
                 if (cancellationToken.IsCancellationRequested)
                     break;
-                TryWriteJson(json);
+                if (WaitForPipe(cancellationToken))
+                    TryWriteJson(json);
             }
         }
         catch (OperationCanceledException) { }
@@ -271,18 +284,44 @@ public sealed class MpvPlayer : IDisposable
         catch (InvalidOperationException) { }
     }
 
-    private void TryWriteJson(string json)
+    private bool WaitForPipe(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested && IsRunning)
+            {
+                lock (_pipeLock)
+                {
+                    if (_pipeWriter != null && _pipeClient?.IsConnected == true)
+                        return true;
+                }
+
+                _pipeReady.Wait(250, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+
+        return false;
+    }
+
+    private bool TryWriteJson(string json)
     {
         lock (_pipeLock)
         {
             try
             {
                 if (_pipeWriter != null && _pipeClient?.IsConnected == true)
+                {
                     _pipeWriter.WriteLine(json);
+                    return true;
+                }
             }
             catch (IOException) { }
             catch (ObjectDisposedException) { }
         }
+
+        return false;
     }
 
     private void TryWriteCommand(params object[] commandArgs)
@@ -417,6 +456,14 @@ public sealed class MpvPlayer : IDisposable
             _pipeName = null;
         }
 
+        SignalPipeReady();
+
+        lock (_shaderThrottleLock)
+        {
+            _shaderThrottleTimer?.Dispose();
+            _shaderThrottleTimer = null;
+        }
+
         TryWriteCommand("quit");
         lock (_pipeLock)
         {
@@ -462,6 +509,7 @@ public sealed class MpvPlayer : IDisposable
 
         try
         {
+            SignalPipeReady();
             _cts.Cancel();
             _commandQueue.CompleteAdding();
             _commandWorker.Wait(TimeSpan.FromSeconds(1));
@@ -487,6 +535,12 @@ public sealed class MpvPlayer : IDisposable
     private void DrainCommandQueue()
     {
         while (_commandQueue.TryTake(out _)) { }
+    }
+
+    private void SignalPipeReady()
+    {
+        try { _pipeReady.Set(); }
+        catch (ObjectDisposedException) { }
     }
 
     private static System.Drawing.Color NormalizeColor(System.Drawing.Color color)
