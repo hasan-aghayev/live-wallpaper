@@ -19,6 +19,9 @@ public class MpvPlayer : IDisposable
     private StreamWriter? _pipeWriter;
     private readonly object _lock = new();
     private bool _isDisposed;
+    private bool _currentOverlayEnabled;
+    private System.Drawing.Color _currentOverlayColor = System.Drawing.Color.Black;
+    private double _currentOverlayOpacity = 0.35;
 
     public bool IsRunning => _process != null && !_process.HasExited;
 
@@ -74,7 +77,7 @@ public class MpvPlayer : IDisposable
         return null;
     }
 
-    public void Start(string videoPath, double volume, bool isMuted, Stretch stretch)
+    public void Start(string videoPath, double volume, bool isMuted, Stretch stretch, bool enableOverlay = false, System.Drawing.Color overlayColor = default, double overlayOpacity = 0.35)
     {
         lock (_lock)
         {
@@ -112,10 +115,23 @@ public class MpvPlayer : IDisposable
             args.Append("--dscale=mitchell ");
             args.Append("--dither-depth=auto ");
             args.Append("--correct-pts=yes ");
+            args.Append("--load-scripts=no ");
             args.Append($"--keepaspect={keepAspect} ");
             args.Append($"--panscan={panscan} ");
             args.Append($"--volume={vol} ");
             args.Append($"--mute={muteStr} ");
+
+            _currentOverlayEnabled = enableOverlay;
+            _currentOverlayColor = (overlayColor.IsEmpty || overlayColor.A == 0) ? System.Drawing.Color.Black : overlayColor;
+            _currentOverlayOpacity = overlayOpacity;
+
+            if (_currentOverlayEnabled && _currentOverlayOpacity > 0.005)
+            {
+                string shaderPath = EnsureOverlayShaderFile(_currentOverlayColor, _currentOverlayOpacity);
+                string normalized = shaderPath.Replace('\\', '/');
+                args.Append($"--glsl-shader=\"{normalized}\" ");
+            }
+
             args.Append($"\"{videoPath}\"");
 
             var psi = new ProcessStartInfo
@@ -156,6 +172,28 @@ public class MpvPlayer : IDisposable
                         _pipeWriter = new StreamWriter(client, Encoding.UTF8) { AutoFlush = true };
                     }
                     DesktopManager.Log("MpvPlayer: Named pipe connected successfully");
+
+                    // Drain pipe responses in background so the pipe buffer never blocks
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            using var reader = new StreamReader(client, Encoding.UTF8, false, 1024, leaveOpen: true);
+                            while (!_isDisposed && client.IsConnected)
+                            {
+                                string? line = reader.ReadLine();
+                                if (line == null) break;
+                            }
+                        }
+                        catch { }
+                    });
+
+                    // Sync overlay state once pipe is active
+                    if (_currentOverlayEnabled && _currentOverlayOpacity > 0.005)
+                    {
+                        SetOverlay(true, _currentOverlayColor, _currentOverlayOpacity);
+                    }
+
                     return;
                 }
                 catch (TimeoutException)
@@ -300,6 +338,74 @@ public class MpvPlayer : IDisposable
         _isDisposed = true;
         Stop();
         GC.SuppressFinalize(this);
+    }
+
+    public static string EnsureOverlayShaderFile(System.Drawing.Color color, double opacity)
+    {
+        if (color.IsEmpty || color.A == 0)
+        {
+            color = System.Drawing.Color.Black;
+        }
+
+        string r = (color.R / 255.0).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+        string g = (color.G / 255.0).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+        string b = (color.B / 255.0).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+        string op = Math.Clamp(opacity, 0.0, 0.95).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+
+        string shaderContent = $@"//!HOOK MAIN
+//!BIND HOOKED
+//!DESC Live Wallpaper Dimming & Color Overlay
+
+vec4 hook() {{
+    vec4 color = HOOKED_tex(HOOKED_pos);
+    vec4 tint = vec4({r}, {g}, {b}, 1.0);
+    return mix(color, tint, {op});
+}}
+";
+        string shaderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "overlay.hook");
+        using (var fs = new FileStream(shaderPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+        using (var sw = new StreamWriter(fs, Encoding.UTF8))
+        {
+            sw.Write(shaderContent);
+        }
+        return shaderPath;
+    }
+
+    public void SetOverlay(bool isEnabled, System.Drawing.Color color, double opacity)
+    {
+        lock (_lock)
+        {
+            if (color.IsEmpty || color.A == 0)
+            {
+                color = System.Drawing.Color.Black;
+            }
+
+            _currentOverlayEnabled = isEnabled;
+            _currentOverlayColor = color;
+            _currentOverlayOpacity = opacity;
+
+            if (_pipeWriter == null || _pipeClient == null || !_pipeClient.IsConnected)
+                return;
+
+            if (!isEnabled || opacity <= 0.005)
+            {
+                SendCommand("change-list", "glsl-shaders", "clr", "");
+                DesktopManager.Log("MpvPlayer: Cleared overlay shader");
+                return;
+            }
+
+            try
+            {
+                string shaderPath = EnsureOverlayShaderFile(color, opacity);
+                string normalizedPath = shaderPath.Replace('\\', '/');
+                SendCommand("change-list", "glsl-shaders", "set", normalizedPath);
+                DesktopManager.Log($"MpvPlayer: Applied overlay shader (Color: {color.Name}, Opacity: {opacity:P0})");
+            }
+            catch (Exception ex)
+            {
+                DesktopManager.Log($"MpvPlayer.SetOverlay error: {ex.Message}");
+            }
+        }
     }
 
     public static void KillAllOrphanInstances()

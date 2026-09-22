@@ -12,7 +12,6 @@ namespace LiveWallpaper;
 public class WallpaperWindow : Form
 {
     private MpvPlayer? _mpvPlayer;
-    private DesktopOverlayWindow? _overlayWindow;
     private bool _isOverlayEnabled;
     private Color _overlayColor = Color.Black;
     private double _overlayOpacity = 0.35;
@@ -40,12 +39,7 @@ public class WallpaperWindow : Form
         {
             CreateHandle();
         }
-        bool attached = DesktopManager.AttachToDesktop(Handle, out _);
-        if (_isOverlayEnabled)
-        {
-            ApplyOverlayInternal();
-        }
-        return attached;
+        return DesktopManager.AttachToDesktop(Handle, out _);
     }
 
     public void SetOverlay(bool isEnabled, Color color, double opacity)
@@ -54,27 +48,7 @@ public class WallpaperWindow : Form
         _overlayColor = color;
         _overlayOpacity = opacity;
 
-        if (IsHandleCreated && Handle != IntPtr.Zero)
-        {
-            ApplyOverlayInternal();
-        }
-    }
-
-    private void ApplyOverlayInternal()
-    {
-        if (_isOverlayEnabled && _overlayOpacity > 0.001)
-        {
-            if (_overlayWindow == null || _overlayWindow.IsDisposed)
-            {
-                _overlayWindow = new DesktopOverlayWindow();
-                _overlayWindow.Show();
-            }
-            _overlayWindow.UpdateOverlay(true, _overlayColor, _overlayOpacity, Handle);
-        }
-        else
-        {
-            _overlayWindow?.UpdateOverlay(false, _overlayColor, 0, Handle);
-        }
+        _mpvPlayer?.SetOverlay(isEnabled, color, opacity);
     }
 
     public void DetachFromDesktop()
@@ -87,7 +61,7 @@ public class WallpaperWindow : Form
 
     public void LoadAndPlay(string filePath, double volume, bool isMuted, Stretch stretchMode)
     {
-        DesktopManager.Log($"WallpaperWindow.LoadAndPlay: {filePath}, vol={volume}, muted={isMuted}, stretch={stretchMode}");
+        DesktopManager.Log($"WallpaperWindow.LoadAndPlay: {filePath}, vol={volume}, muted={isMuted}, stretch={stretchMode}, overlay={_isOverlayEnabled}, opacity={_overlayOpacity}");
         if (!File.Exists(filePath))
         {
             DesktopManager.Log($"Error: file does not exist: {filePath}");
@@ -103,9 +77,9 @@ public class WallpaperWindow : Form
                 _mpvPlayer = new MpvPlayer(Handle);
             }
 
-            _mpvPlayer.Start(filePath, volume, isMuted, stretchMode);
+            _mpvPlayer.Start(filePath, volume, isMuted, stretchMode, _isOverlayEnabled, _overlayColor, _overlayOpacity);
             IsPlaying = true;
-            DesktopManager.Log("WallpaperWindow: MpvPlayer started playback successfully");
+            DesktopManager.Log("WallpaperWindow: MpvPlayer started playback successfully with GPU overlay");
         }
         catch (Exception ex)
         {
@@ -131,10 +105,6 @@ public class WallpaperWindow : Form
     public void Stop()
     {
         DesktopManager.Log("WallpaperWindow.Stop called");
-        _overlayWindow?.Close();
-        _overlayWindow?.Dispose();
-        _overlayWindow = null;
-
         _mpvPlayer?.Stop();
         _mpvPlayer?.Dispose();
         _mpvPlayer = null;
@@ -161,10 +131,6 @@ public class WallpaperWindow : Form
     {
         if (disposing)
         {
-            _overlayWindow?.Close();
-            _overlayWindow?.Dispose();
-            _overlayWindow = null;
-
             _mpvPlayer?.Dispose();
             _mpvPlayer = null;
         }
