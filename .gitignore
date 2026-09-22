@@ -1,0 +1,28 @@
+# Build outputs
+bin/
+obj/
+publish/
+
+# mpv binary (>100MB exceeds GitHub file size limit; use scripts/setup-mpv.ps1)
+mpv.exe
+mpv.com
+mpv/
+
+# User runtime configuration & logs
+config.json
+*.log
+desktop_debug.log
+
+# Visual Studio & IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS generated files
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/

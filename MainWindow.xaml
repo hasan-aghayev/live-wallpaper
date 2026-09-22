@@ -1,0 +1,247 @@
+<Window x:Class="LiveWallpaper.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HaS Studio · Live Wallpaper Launcher"
+        Height="700" Width="820"
+        MinHeight="620" MinWidth="740"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource UiBgBrush}"
+        Foreground="{StaticResource UiTextBrush}"
+        FontFamily="{StaticResource UiFont}">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <!-- Header -->
+            <RowDefinition Height="Auto"/>
+            <!-- Main Content Scrollable -->
+            <RowDefinition Height="*"/>
+            <!-- Footer Status -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="🎬" FontSize="18" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="HaS Studio" FontSize="17" FontWeight="Bold" FontFamily="{StaticResource UiFontMono}" 
+                               Foreground="{StaticResource UiAccentBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text=" · Live Wallpaper Launcher" FontSize="17" FontWeight="Bold" 
+                               Foreground="{StaticResource UiTextBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Text="Original 4K playback · Direct3D 11 · Zero Compression" 
+                           FontSize="11" Foreground="{StaticResource UiTextSecondaryBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Status Badge -->
+            <Border Grid.Column="1" x:Name="StatusBadge" Background="{StaticResource UiSurfaceInsetBrush}" 
+                    BorderBrush="{StaticResource UiBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource UiRadiusSm}" 
+                    Padding="12,6" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{StaticResource UiTextMutedBrush}" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="StatusText" Text="Wallpaper Inactive" FontSize="11" FontWeight="SemiBold" 
+                               FontFamily="{StaticResource UiFontMono}" Foreground="{StaticResource UiTextSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Scrollable Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,14">
+            <StackPanel>
+                <!-- Drag & Drop Zone -->
+                <Border x:Name="DropZone" 
+                        Background="{StaticResource UiSurfaceInsetBrush}" 
+                        BorderBrush="{StaticResource UiBorderBrush}" 
+                        BorderThickness="1" 
+                        CornerRadius="{StaticResource UiRadiusLg}" 
+                        Padding="20"
+                        AllowDrop="True"
+                        Drop="DropZone_Drop"
+                        DragEnter="DropZone_DragEnter"
+                        DragLeave="DropZone_DragLeave">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="📥" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                        <TextBlock Text="Drag &amp; drop video file here" FontSize="14" FontWeight="SemiBold" 
+                                   Foreground="{StaticResource UiTextBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Supported formats: MP4, MKV, MOV, WEBM · 1:1 original quality without compression" FontSize="11" 
+                                   Foreground="{StaticResource UiTextMutedBrush}" HorizontalAlignment="Center" Margin="0,3,0,12"/>
+                        <Button Content="📂 Browse Video File" 
+                                Style="{StaticResource UiButtonSecondary}"
+                                HorizontalAlignment="Center"
+                                Click="BtnBrowse_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Current Selected File Card -->
+                <Border Style="{StaticResource UiCardInset}" Margin="0,12,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="🎥" FontSize="22" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtSelectedFileName" Text="No file selected" 
+                                       FontSize="12" FontWeight="SemiBold" FontFamily="{StaticResource UiFontMono}" 
+                                       Foreground="{StaticResource UiTextBrush}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="TxtSelectedFilePath" Text="Select a video file above or drag and drop one into the launcher" 
+                                       FontSize="10" Foreground="{StaticResource UiTextMutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Primary Controls -->
+                <Grid Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="BtnApply" Grid.Column="0" Content="▶ Apply Live Wallpaper" 
+                            Style="{StaticResource UiButtonPrimary}" Margin="0,0,8,0"
+                            Click="BtnApply_Click"/>
+
+                    <Button x:Name="BtnPauseResume" Grid.Column="1" Content="⏸ Pause" 
+                            Style="{StaticResource UiButtonSecondary}" Margin="0,0,8,0"
+                            Click="BtnPauseResume_Click" IsEnabled="False"/>
+
+                    <Button x:Name="BtnStop" Grid.Column="2" Content="⏹ Stop" 
+                            Style="{StaticResource UiButtonDanger}"
+                            Click="BtnStop_Click" IsEnabled="False"/>
+                </Grid>
+
+                <!-- Settings Card -->
+                <Border Style="{StaticResource UiCard}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <TextBlock Text="⚙ PLAYBACK &amp; SYSTEM SETTINGS" FontSize="11" FontWeight="SemiBold" 
+                                   FontFamily="{StaticResource UiFontMono}" Foreground="{StaticResource UiTextSecondaryBrush}" Margin="0,0,0,14"/>
+
+                        <!-- Volume control -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="🔊 Volume:" FontSize="11" 
+                                       Foreground="{StaticResource UiTextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <Slider x:Name="SliderVolume" Grid.Column="1" Minimum="0" Maximum="100" Value="0" 
+                                    VerticalAlignment="Center" ValueChanged="SliderVolume_ValueChanged"/>
+                            <TextBlock x:Name="TxtVolumeValue" Grid.Column="2" Text="0%" FontSize="11" FontFamily="{StaticResource UiFontMono}" 
+                                       Foreground="{StaticResource UiTextSecondaryBrush}" Width="40" TextAlignment="Right" VerticalAlignment="Center" Margin="8,0,12,0"/>
+                            <CheckBox x:Name="ChkMute" Grid.Column="3" Content="Mute" IsChecked="True" 
+                                      VerticalAlignment="Center" Foreground="{StaticResource UiTextBrush}" FontSize="11" 
+                                      Checked="ChkMute_Changed" Unchecked="ChkMute_Changed"/>
+                        </Grid>
+
+                        <Separator Background="{StaticResource UiBorderBrush}" Margin="0,0,0,12"/>
+
+                        <!-- Stretch Mode -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="📐 Scaling Mode:" FontSize="11" 
+                                       Foreground="{StaticResource UiTextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                            <ComboBox x:Name="CmbStretch" Grid.Column="1" Width="240" HorizontalAlignment="Left" 
+                                      Style="{StaticResource UiComboBox}" SelectionChanged="CmbStretch_SelectionChanged">
+                                <ComboBoxItem Content="Fill Screen (Aspect Fill)" IsSelected="True" Tag="Fill"/>
+                                <ComboBoxItem Content="Fit to Screen (Aspect Fit)" Tag="Fit"/>
+                                <ComboBoxItem Content="Stretch to Fill" Tag="Stretch"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <Separator Background="{StaticResource UiBorderBrush}" Margin="0,0,0,12"/>
+
+                        <!-- Color Overlay & Dimming Section -->
+                        <Border Style="{StaticResource UiCardInset}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="ChkEnableOverlay" Content="🎨 Desktop Dimming &amp; Color Overlay (Improves desktop icon contrast)" 
+                                              Foreground="{StaticResource UiTextBrush}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                                              Checked="ChkEnableOverlay_Changed" Unchecked="ChkEnableOverlay_Changed"/>
+                                    <Border Grid.Column="1" x:Name="BorderCurrentColorPreview" Width="20" Height="20" CornerRadius="10" 
+                                            BorderBrush="{StaticResource UiBorderStrongBrush}" BorderThickness="1.5" Background="#000000" VerticalAlignment="Center"
+                                            ToolTip="Current overlay color"/>
+                                </Grid>
+
+                                <!-- Dimming Opacity Slider -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="🌑 Dimming Opacity:" FontSize="11" 
+                                               Foreground="{StaticResource UiTextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <Slider x:Name="SliderOverlayOpacity" Grid.Column="1" Minimum="0" Maximum="90" Value="35" 
+                                            SmallChange="1" LargeChange="10" VerticalAlignment="Center" 
+                                            ValueChanged="SliderOverlayOpacity_ValueChanged"/>
+                                    <TextBlock x:Name="TxtOverlayOpacityValue" Grid.Column="2" Text="35%" FontSize="11" FontWeight="SemiBold" 
+                                               FontFamily="{StaticResource UiFontMono}" Foreground="{StaticResource UiAccentBrush}" 
+                                               Width="40" TextAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </Grid>
+
+                                <!-- Color Presets and Custom Color Picker -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Tone:" FontSize="11" Foreground="{StaticResource UiTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <Button Content="⚫ Black" Style="{StaticResource UiChipButton}" Tag="#000000" Click="BtnColorPreset_Click"/>
+                                        <Button Content="🌑 Slate" Style="{StaticResource UiChipButton}" Tag="#0F172A" Click="BtnColorPreset_Click"/>
+                                        <Button Content="🔵 Navy" Style="{StaticResource UiChipButton}" Tag="#0A192F" Click="BtnColorPreset_Click"/>
+                                        <Button Content="🟣 Cyber" Style="{StaticResource UiChipButton}" Tag="#1E1035" Click="BtnColorPreset_Click"/>
+                                        <Button Content="🟢 Emerald" Style="{StaticResource UiChipButton}" Tag="#062419" Click="BtnColorPreset_Click"/>
+                                    </WrapPanel>
+                                    <Button Grid.Column="2" Content="🎨 Custom..." Style="{StaticResource UiButtonSecondary}" 
+                                            Padding="8,0" Height="26" FontSize="10" Click="BtnCustomColor_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Separator Background="{StaticResource UiBorderBrush}" Margin="0,0,0,12"/>
+
+                        <!-- Checkboxes: AutoStart & Tray -->
+                        <StackPanel Orientation="Vertical">
+                            <CheckBox x:Name="ChkAutoStart" Content="🚀 Run live wallpaper on Windows startup" 
+                                      Foreground="{StaticResource UiTextBrush}" FontSize="11" Margin="0,0,0,8"
+                                      Checked="ChkAutoStart_Checked" Unchecked="ChkAutoStart_Unchecked"/>
+                            <CheckBox x:Name="ChkMinimizeToTray" Content="📥 Minimize to system tray when closing window" 
+                                      Foreground="{StaticResource UiTextBrush}" FontSize="11" IsChecked="True"
+                                      Checked="ChkMinimizeToTray_Changed" Unchecked="ChkMinimizeToTray_Changed"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer / Notification Bar -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="TxtFooterMessage" Text="Ready. Please select or drag &amp; drop a video file." 
+                       FontSize="11" FontFamily="{StaticResource UiFontMono}" Foreground="{StaticResource UiTextSecondaryBrush}" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="Minimize to Tray" Style="{StaticResource UiButtonSecondary}" 
+                    Padding="10,0" Height="28" FontSize="11" Click="BtnMinimizeToTray_Click"/>
+        </Grid>
+    </Grid>
+</Window>
