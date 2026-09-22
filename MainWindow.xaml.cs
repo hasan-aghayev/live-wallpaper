@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using LiveWallpaper.Core;
 using Color = System.Windows.Media.Color;
@@ -21,6 +22,10 @@ public partial class MainWindow : Window
     private string? _selectedVideoPath;
     private bool _isExiting;
     private bool _isInitializing = true;
+    private bool _manualPauseRequested;
+    private bool _autoPausedForVisibility;
+    private DateTime? _hiddenSinceUtc;
+    private DispatcherTimer? _visibilityTimer;
 
     public MainWindow()
     {
@@ -74,6 +79,15 @@ public partial class MainWindow : Window
         ChkEnableOverlay.IsChecked = _config.EnableOverlay;
         SliderOverlayOpacity.Value = _config.OverlayOpacity * 100.0;
         TxtOverlayOpacityValue.Text = $"{(int)SliderOverlayOpacity.Value}%";
+        ChkPauseWhenHidden.IsChecked = _config.PauseWhenHidden;
+        foreach (ComboBoxItem item in CmbHiddenRelease.Items)
+        {
+            if (item.Tag?.ToString() == _config.HiddenResourceReleaseSeconds.ToString())
+            {
+                CmbHiddenRelease.SelectedItem = item;
+                break;
+            }
+        }
         _trayManager.SetPlayState(false);
         _trayManager.SetMuteState(_config.IsMuted);
 
@@ -227,6 +241,10 @@ public partial class MainWindow : Window
             BtnPauseResume.Content = "Pause";
             BtnStop.IsEnabled = true;
             _trayManager.SetPlayState(true);
+            _manualPauseRequested = false;
+            _autoPausedForVisibility = false;
+            _hiddenSinceUtc = null;
+            ConfigureVisibilityMonitoring();
 
             TxtFooterMessage.Text = "Wallpaper active";
         }
@@ -258,6 +276,9 @@ public partial class MainWindow : Window
         if (_wallpaperWindow.IsPlaying)
         {
             _wallpaperWindow.Pause();
+            _manualPauseRequested = true;
+            _autoPausedForVisibility = false;
+            _hiddenSinceUtc = null;
             BtnPauseResume.Content = "Resume";
             UpdateStatus(false, "Paused", true);
             _trayManager.SetPlayState(false);
@@ -265,7 +286,19 @@ public partial class MainWindow : Window
         }
         else
         {
-            _wallpaperWindow.Play();
+            if (_wallpaperWindow.IsDeepSleeping)
+            {
+                if (!ResumeFromDeepSleep())
+                    return;
+            }
+            else
+            {
+                _wallpaperWindow.Play();
+            }
+
+            _manualPauseRequested = false;
+            _autoPausedForVisibility = false;
+            _hiddenSinceUtc = null;
             BtnPauseResume.Content = "Pause";
             UpdateStatus(true, "Active");
             _trayManager.SetPlayState(true);
@@ -287,6 +320,11 @@ public partial class MainWindow : Window
             _wallpaperWindow.Close();
             _wallpaperWindow = null;
         }
+
+        StopVisibilityMonitoring();
+        _manualPauseRequested = false;
+        _autoPausedForVisibility = false;
+        _hiddenSinceUtc = null;
 
         Task.Run(() => DesktopManager.RefreshDesktop());
 
@@ -475,6 +513,7 @@ public partial class MainWindow : Window
 
         _isExiting = true;
         SystemEvents.DisplaySettingsChanged -= DisplaySettingsChanged;
+        StopVisibilityMonitoring();
         ConfigManager.SaveImmediately();
         StopWallpaper();
         _trayManager.Dispose();
@@ -493,6 +532,8 @@ public partial class MainWindow : Window
         _config.StretchMode = (CmbStretch.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Fill";
         _config.EnableOverlay = ChkEnableOverlay.IsChecked == true;
         _config.OverlayOpacity = SliderOverlayOpacity.Value / 100.0;
+        _config.PauseWhenHidden = ChkPauseWhenHidden.IsChecked == true;
+        _config.HiddenResourceReleaseSeconds = GetHiddenResourceReleaseSeconds();
 
         ConfigManager.Save(_config);
         ConfigManager.SaveImmediately();
@@ -508,6 +549,8 @@ public partial class MainWindow : Window
                 _config.OverlayOpacity,
                 immediate: true);
         }
+
+        ConfigureVisibilityMonitoring();
 
         if (showMessage)
         {
@@ -544,6 +587,146 @@ public partial class MainWindow : Window
         ConfigManager.Save(_config);
 
         _wallpaperWindow?.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), opacity, immediate: false);
+    }
+
+    private void ChkPauseWhenHidden_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isInitializing || _config == null)
+            return;
+
+        SaveAndApplySettings();
+    }
+
+    private void CmbHiddenRelease_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing || _config == null)
+            return;
+
+        SaveAndApplySettings();
+    }
+
+    private int GetHiddenResourceReleaseSeconds()
+    {
+        if (CmbHiddenRelease.SelectedItem is ComboBoxItem item
+            && int.TryParse(item.Tag?.ToString(), out int seconds))
+        {
+            return seconds;
+        }
+
+        return 60;
+    }
+
+    private void ConfigureVisibilityMonitoring()
+    {
+        if (_wallpaperWindow == null || !_config.PauseWhenHidden || _manualPauseRequested)
+        {
+            _visibilityTimer?.Stop();
+            _hiddenSinceUtc = null;
+
+            if (_wallpaperWindow != null && !_manualPauseRequested && _autoPausedForVisibility)
+            {
+                ResumeFromVisibilityPause();
+            }
+
+            return;
+        }
+
+        _visibilityTimer ??= new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _visibilityTimer.Tick -= VisibilityTimer_Tick;
+        _visibilityTimer.Tick += VisibilityTimer_Tick;
+        _visibilityTimer.Start();
+    }
+
+    private void StopVisibilityMonitoring()
+    {
+        _visibilityTimer?.Stop();
+        _hiddenSinceUtc = null;
+    }
+
+    private void VisibilityTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_wallpaperWindow == null || !_config.PauseWhenHidden || _manualPauseRequested)
+            return;
+
+        bool desktopVisible = DesktopVisibilityMonitor.IsDesktopVisible();
+        if (desktopVisible)
+        {
+            _hiddenSinceUtc = null;
+            if (_autoPausedForVisibility || _wallpaperWindow.IsDeepSleeping)
+            {
+                ResumeFromVisibilityPause();
+            }
+
+            return;
+        }
+
+        _hiddenSinceUtc ??= DateTime.UtcNow;
+        if (!_autoPausedForVisibility && !_wallpaperWindow.IsDeepSleeping)
+        {
+            _wallpaperWindow.Pause();
+            _autoPausedForVisibility = true;
+            UpdateStatus(false, "Paused", true);
+            BtnPauseResume.Content = "Resume";
+            _trayManager.SetPlayState(false);
+            TxtFooterMessage.Text = "Wallpaper paused while hidden";
+        }
+
+        int releaseAfterSeconds = _config.HiddenResourceReleaseSeconds;
+        if (releaseAfterSeconds > 0
+            && !_wallpaperWindow.IsDeepSleeping
+            && DateTime.UtcNow - _hiddenSinceUtc.Value >= TimeSpan.FromSeconds(releaseAfterSeconds))
+        {
+            _wallpaperWindow.EnterDeepSleep();
+            UpdateStatus(false, "Sleeping", true);
+            TxtFooterMessage.Text = "Resources released while hidden";
+        }
+    }
+
+    private void ResumeFromVisibilityPause()
+    {
+        if (_wallpaperWindow == null)
+            return;
+
+        bool resumed = _wallpaperWindow.IsDeepSleeping
+            ? ResumeFromDeepSleep()
+            : ResumeCurrentWallpaper();
+
+        if (!resumed)
+        {
+            StopVisibilityMonitoring();
+            HandlePlaybackError("Не удалось возобновить обои после режима экономии ресурсов.");
+            return;
+        }
+
+        _autoPausedForVisibility = false;
+        _hiddenSinceUtc = null;
+        BtnPauseResume.Content = "Pause";
+        UpdateStatus(true, "Active");
+        _trayManager.SetPlayState(true);
+        TxtFooterMessage.Text = "Wallpaper active";
+    }
+
+    private bool ResumeCurrentWallpaper()
+    {
+        if (_wallpaperWindow == null)
+            return false;
+
+        _wallpaperWindow.Play();
+        return _wallpaperWindow.IsPlaying;
+    }
+
+    private bool ResumeFromDeepSleep()
+    {
+        if (_wallpaperWindow == null)
+            return false;
+
+        return _wallpaperWindow.ResumeFromDeepSleep(
+            SliderVolume.Value / 100.0,
+            ChkMute.IsChecked == true,
+            GetSelectedStretch());
     }
 
 }

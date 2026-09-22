@@ -17,6 +17,7 @@ public sealed class WallpaperWindow : Form
     private double _overlayOpacity = 0.35;
 
     public bool IsPlaying { get; private set; }
+    public bool IsDeepSleeping { get; private set; }
     public string? CurrentVideoPath { get; private set; }
 
     public event Action<string>? OnPlaybackError;
@@ -87,6 +88,7 @@ public sealed class WallpaperWindow : Form
 
             _mpvPlayer.Start(filePath, volume, isMuted, stretchMode, _isOverlayEnabled, _overlayColor, _overlayOpacity);
             IsPlaying = _mpvPlayer.IsRunning;
+            IsDeepSleeping = false;
             DesktopManager.Log("WallpaperWindow: MpvPlayer started playback successfully with GPU overlay");
             return IsPlaying;
         }
@@ -102,6 +104,9 @@ public sealed class WallpaperWindow : Form
     public void Play()
     {
         DesktopManager.Log("WallpaperWindow.Play called");
+        if (_mpvPlayer == null)
+            return;
+
         _mpvPlayer?.Play();
         IsPlaying = true;
     }
@@ -120,7 +125,30 @@ public sealed class WallpaperWindow : Form
         _mpvPlayer?.Dispose();
         _mpvPlayer = null;
         IsPlaying = false;
+        IsDeepSleeping = false;
         CurrentVideoPath = null;
+    }
+
+    public void EnterDeepSleep()
+    {
+        if (IsDeepSleeping)
+            return;
+
+        DesktopManager.Log("WallpaperWindow: entering deep sleep and releasing mpv resources");
+        _mpvPlayer?.Dispose();
+        _mpvPlayer = null;
+        IsPlaying = false;
+        IsDeepSleeping = true;
+    }
+
+    public bool ResumeFromDeepSleep(double volume, bool isMuted, Stretch stretchMode)
+    {
+        if (!IsDeepSleeping || string.IsNullOrWhiteSpace(CurrentVideoPath))
+            return IsPlaying;
+
+        string videoPath = CurrentVideoPath;
+        DesktopManager.Log("WallpaperWindow: resuming from deep sleep");
+        return LoadAndPlay(videoPath, volume, isMuted, stretchMode);
     }
 
     public void SetVolume(double volume)

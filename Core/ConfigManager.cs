@@ -7,7 +7,7 @@ namespace LiveWallpaper.Core;
 
 public class WallpaperConfig
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
     public string? LastVideoPath { get; set; }
     public double Volume { get; set; } = 0.0;
     public bool IsMuted { get; set; } = true;
@@ -18,6 +18,8 @@ public class WallpaperConfig
     public bool EnableOverlay { get; set; } = false;
     public double OverlayOpacity { get; set; } = 0.35;
     public string OverlayColor { get; set; } = "#000000";
+    public bool PauseWhenHidden { get; set; } = true;
+    public int HiddenResourceReleaseSeconds { get; set; } = 60;
 }
 
 public static class ConfigManager
@@ -88,7 +90,7 @@ public static class ConfigManager
 
     private static WallpaperConfig Normalize(WallpaperConfig config)
     {
-        config.SchemaVersion = 1;
+        config.SchemaVersion = 2;
         config.Volume = Math.Clamp(double.IsFinite(config.Volume) ? config.Volume : 0.0, 0.0, 1.0);
         config.OverlayOpacity = Math.Clamp(
             double.IsFinite(config.OverlayOpacity) ? config.OverlayOpacity : 0.35,
@@ -97,6 +99,9 @@ public static class ConfigManager
         config.StretchMode = config.StretchMode is "Fill" or "Fit" or "Stretch"
             ? config.StretchMode
             : "Fill";
+        config.HiddenResourceReleaseSeconds = config.HiddenResourceReleaseSeconds is 0 or 30 or 60 or 300
+            ? config.HiddenResourceReleaseSeconds
+            : 60;
         if (!string.IsNullOrWhiteSpace(config.LastVideoPath))
         {
             try { config.LastVideoPath = Path.GetFullPath(config.LastVideoPath); }

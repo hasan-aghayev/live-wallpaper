@@ -177,6 +177,41 @@
                             </Border>
                         </Grid>
 
+                        <Border Height="1" Background="{StaticResource UiBorderBrush}" Margin="0,22,0,0"/>
+
+                        <Grid Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <CheckBox x:Name="ChkPauseWhenHidden" Content="Pause when hidden"
+                                      Style="{StaticResource UiCheckBox}"
+                                      Checked="ChkPauseWhenHidden_Changed"
+                                      Unchecked="ChkPauseWhenHidden_Changed"/>
+                            <TextBlock Grid.Column="1" Text="GPU saving" FontSize="10" FontWeight="SemiBold"
+                                       FontFamily="{StaticResource UiFontMono}"
+                                       Foreground="{StaticResource UiTextMutedBrush}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Release resources" FontSize="12"
+                                       Foreground="{StaticResource UiTextSecondaryBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,18,0"/>
+                            <ComboBox x:Name="CmbHiddenRelease" Grid.Column="1" Width="190"
+                                      HorizontalAlignment="Left" Style="{StaticResource UiComboBox}"
+                                      SelectionChanged="CmbHiddenRelease_SelectionChanged">
+                                <ComboBoxItem Content="Never" Tag="0"/>
+                                <ComboBoxItem Content="After 30 seconds" Tag="30"/>
+                                <ComboBoxItem Content="After 1 minute" Tag="60"/>
+                                <ComboBoxItem Content="After 5 minutes" Tag="300"/>
+                            </ComboBox>
+                        </Grid>
+
                         <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
                             <CheckBox x:Name="ChkAutoStart" Content="Start with Windows" Style="{StaticResource UiCheckBox}"
                                       Checked="ChkAutoStart_Checked" Unchecked="ChkAutoStart_Unchecked"/>
