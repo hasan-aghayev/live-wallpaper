@@ -31,6 +31,8 @@ jobs:
 
     - name: Build distributable package
       shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: ./scripts/package.ps1 -Configuration Release -OutputDirectory ./dist
 
     - name: Upload Build Artifact

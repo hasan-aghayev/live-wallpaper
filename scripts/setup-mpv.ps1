@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$DestinationDirectory = (Split-Path -Parent $PSScriptRoot)
+    [string]$DestinationDirectory = (Split-Path -Parent $PSScriptRoot),
+    [string]$GitHubToken = $env:GITHUB_TOKEN
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,7 +38,11 @@ try {
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $apiUrl = 'https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest'
-    $release = Invoke-RestMethod -Uri $apiUrl -Headers @{ 'User-Agent' = 'HaS-Live-Wallpaper-Setup' }
+    $headers = @{ 'User-Agent' = 'HaS-Live-Wallpaper-Setup'; 'Accept' = 'application/vnd.github+json' }
+    if (-not [string]::IsNullOrWhiteSpace($GitHubToken)) {
+        $headers['Authorization'] = "Bearer $GitHubToken"
+    }
+    $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers
     $asset = $release.assets |
         Where-Object { $_.name -match '^mpv-x86_64-v3-.*\.(7z|zip)$' } |
         Select-Object -First 1
