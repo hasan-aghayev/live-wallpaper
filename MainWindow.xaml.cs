@@ -19,7 +19,8 @@ public partial class MainWindow : Window
     private readonly TrayManager _trayManager;
     private WallpaperWindow? _wallpaperWindow;
     private string? _selectedVideoPath;
-    private bool _isExiting = false;
+    private bool _isExiting;
+    private bool _isInitializing;
 
     public MainWindow()
     {
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
 
         _config = ConfigManager.Load();
         _trayManager = new TrayManager();
+        _isInitializing = true;
 
         // Setup Tray callbacks
         _trayManager.OnOpenRequested += () =>
@@ -74,15 +76,32 @@ public partial class MainWindow : Window
         TxtOverlayOpacityValue.Text = $"{(int)SliderOverlayOpacity.Value}%";
         UpdateOverlayPreviewColor(_config.OverlayColor);
 
-        // Restore last video if available
+        // Restore last video if available. Playback starts after the WPF window
+        // has been rendered, otherwise the desktop HWND may not exist yet.
         if (!string.IsNullOrEmpty(_config.LastVideoPath) && File.Exists(_config.LastVideoPath))
         {
             SelectVideoFile(_config.LastVideoPath);
-            if (_config.AutoPlayOnLaunch)
-            {
-                ApplyWallpaper();
-            }
         }
+
+        _isInitializing = false;
+        ContentRendered += MainWindow_ContentRendered;
+        SystemEvents.DisplaySettingsChanged += DisplaySettingsChanged;
+    }
+
+    private void MainWindow_ContentRendered(object? sender, EventArgs e)
+    {
+        ContentRendered -= MainWindow_ContentRendered;
+        if (_config.AutoPlayOnLaunch && VideoFileValidator.IsSupported(_selectedVideoPath))
+        {
+            ApplyWallpaper();
+            if (App.IsBackgroundLaunch && _config.MinimizeToTray)
+                Hide();
+        }
+    }
+
+    private void DisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => _wallpaperWindow?.RefreshDesktopBounds());
     }
 
     private void SelectVideoFile(string path)
@@ -101,7 +120,7 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "Select Video File for Live Wallpaper",
-            Filter = "Video Files (*.mp4;*.mkv;*.mov;*.webm)|*.mp4;*.mkv;*.mov;*.webm|All Files (*.*)|*.*",
+            Filter = "Video Files|*.avi;*.flv;*.m2ts;*.m4v;*.mkv;*.mov;*.mp4;*.mpeg;*.mpg;*.ogv;*.ts;*.webm;*.wmv|All Files (*.*)|*.*",
             Multiselect = false
         };
 
@@ -120,14 +139,13 @@ public partial class MainWindow : Window
             string[] files = (string[])e.Data.GetData(System.Windows.DataFormats.FileDrop);
             if (files.Length > 0)
             {
-                string ext = Path.GetExtension(files[0]).ToLowerInvariant();
-                if (ext is ".mp4" or ".mkv" or ".mov" or ".webm")
+                if (VideoFileValidator.IsSupported(files[0]))
                 {
                     SelectVideoFile(files[0]);
                 }
                 else
                 {
-                    MessageBox.Show("Please select a video in MP4, MKV, MOV, or WEBM format.",
+                    MessageBox.Show($"Please select a supported video file ({VideoFileValidator.SupportedExtensionsDescription}).",
                                     "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
@@ -155,12 +173,14 @@ public partial class MainWindow : Window
 
     private void ApplyWallpaper()
     {
-        if (string.IsNullOrEmpty(_selectedVideoPath) || !File.Exists(_selectedVideoPath))
+        if (!VideoFileValidator.IsSupported(_selectedVideoPath))
         {
-            MessageBox.Show("Please select or drop a video file first!", "No File Selected",
+            MessageBox.Show("Please select a supported video file first.", "No File Selected",
                             MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        string selectedVideoPath = _selectedVideoPath!;
 
         try
         {
@@ -169,11 +189,7 @@ public partial class MainWindow : Window
                 _wallpaperWindow = new WallpaperWindow();
                 _wallpaperWindow.OnPlaybackError += (err) =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        UpdateStatus(false, "Video Error");
-                        TxtFooterMessage.Text = $"Error: {err}";
-                    });
+                    Dispatcher.BeginInvoke(() => HandlePlaybackError(err));
                 };
                 _wallpaperWindow.Show();
                 bool attached = _wallpaperWindow.AttachToDesktop();
@@ -187,7 +203,12 @@ public partial class MainWindow : Window
             _wallpaperWindow.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), SliderOverlayOpacity.Value / 100.0);
 
             Stretch stretch = GetSelectedStretch();
-            _wallpaperWindow.LoadAndPlay(_selectedVideoPath, SliderVolume.Value / 100.0, ChkMute.IsChecked == true, stretch);
+            bool started = _wallpaperWindow.LoadAndPlay(selectedVideoPath, SliderVolume.Value / 100.0, ChkMute.IsChecked == true, stretch);
+            if (!started)
+            {
+                HandlePlaybackError("Воспроизведение не запустилось. Проверьте наличие mpv.exe и доступность видеофайла.");
+                return;
+            }
 
             UpdateStatus(true, "Wallpaper Active");
             BtnPauseResume.IsEnabled = true;
@@ -201,6 +222,15 @@ public partial class MainWindow : Window
         {
             MessageBox.Show($"Failed to apply live wallpaper:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void HandlePlaybackError(string message)
+    {
+        UpdateStatus(false, "Video Error");
+        BtnPauseResume.IsEnabled = false;
+        BtnStop.IsEnabled = _wallpaperWindow != null;
+        TxtFooterMessage.Text = $"Error: {message}";
+        _trayManager.ShowNotification("HaS Live Wallpaper", message);
     }
 
     private void BtnPauseResume_Click(object sender, RoutedEventArgs e)
@@ -300,6 +330,9 @@ public partial class MainWindow : Window
             TxtVolumeValue.Text = $"{(int)SliderVolume.Value}%";
         }
 
+        if (_isInitializing)
+            return;
+
         if (_wallpaperWindow != null && _config != null)
         {
             double vol = SliderVolume.Value / 100.0;
@@ -311,6 +344,9 @@ public partial class MainWindow : Window
 
     private void ChkMute_Changed(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing)
+            return;
+
         bool isMuted = ChkMute.IsChecked == true;
         if (_config != null)
         {
@@ -324,6 +360,9 @@ public partial class MainWindow : Window
 
     private void CmbStretch_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing)
+            return;
+
         if (CmbStretch.SelectedItem is ComboBoxItem item && item.Tag != null && _config != null)
         {
             _config.StretchMode = item.Tag.ToString()!;
@@ -334,6 +373,9 @@ public partial class MainWindow : Window
 
     private void ChkAutoStart_Checked(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing)
+            return;
+
         AutoStartManager.SetAutoStart(true);
         if (_config != null)
         {
@@ -344,6 +386,9 @@ public partial class MainWindow : Window
 
     private void ChkAutoStart_Unchecked(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing)
+            return;
+
         AutoStartManager.SetAutoStart(false);
         if (_config != null)
         {
@@ -354,6 +399,9 @@ public partial class MainWindow : Window
 
     private void ChkMinimizeToTray_Changed(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing)
+            return;
+
         if (_config != null)
         {
             _config.MinimizeToTray = ChkMinimizeToTray.IsChecked == true;
@@ -369,6 +417,9 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        if (_isExiting)
+            return;
+
         if (!_isExiting && ChkMinimizeToTray.IsChecked == true)
         {
             e.Cancel = true;
@@ -383,10 +434,13 @@ public partial class MainWindow : Window
 
     private void ExitApplication()
     {
+        if (_isExiting)
+            return;
+
         _isExiting = true;
+        SystemEvents.DisplaySettingsChanged -= DisplaySettingsChanged;
         ConfigManager.SaveImmediately();
         StopWallpaper();
-        MpvPlayer.KillAllOrphanInstances();
         _trayManager.Dispose();
         System.Windows.Application.Current.Shutdown();
     }

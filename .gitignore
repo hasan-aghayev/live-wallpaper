@@ -2,6 +2,8 @@
 bin/
 obj/
 publish/
+artifacts/
+dist/
 
 # mpv binary (>100MB exceeds GitHub file size limit; use scripts/setup-mpv.ps1)
 mpv.exe

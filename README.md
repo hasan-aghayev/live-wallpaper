@@ -1,154 +1,140 @@
-# 🎬 Live Wallpaper Launcher
+# HaS Live Wallpaper
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20x64-0078D6.svg)](https://microsoft.com/windows)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/)
-[![Direct3D 11](https://img.shields.io/badge/Renderer-Direct3D%2011%20%2F%20Libplacebo-brightgreen.svg)]()
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/hasan-aghayev/live-wallpaper/pulls)
+Лёгкие живые обои для Windows 10/11 x64. Приложение ставит видео за значки рабочего стола, использует аппаратное декодирование через Direct3D 11 и не перекодирует исходный файл.
 
-A high-performance, lightweight, hardware-accelerated **Live Video Wallpaper Launcher** for Windows 10 and Windows 11 (x64). Set any video (MP4, MKV, MOV, WEBM) as a smooth desktop background behind your desktop icons with **100% original quality, zero compression, and customizable desktop dimming**.
+Проект сделан и поддерживается Hasan Aghayev / HaS Studio.
 
-Designed and crafted by **Hasan Aghayev** ([hasan.agaev@gmail.com](mailto:hasan.agaev@gmail.com)) adhering to the **HaS Studio** design system (`design.md`).
+## Что умеет приложение
 
----
+- MP4, MKV, MOV, WEBM, AVI, WMV, M4V, MPEG, TS и другие распространённые форматы, которые понимает mpv.
+- Аппаратное воспроизведение через Direct3D 11 с автоматическим fallback на программное декодирование.
+- Циклическое воспроизведение, пауза, громкость и отключение звука.
+- Три режима кадрирования: заполнить экран, показать весь кадр, растянуть.
+- Плавное затемнение и цветовой оттенок поверх видео, чтобы иконки рабочего стола оставались читаемыми.
+- Drag & drop из Проводника.
+- Системный трей, запуск вместе с Windows и восстановление последнего видео.
+- Поддержка виртуального рабочего стола и изменения конфигурации мониторов.
+- Все настройки и логи хранятся в профиле пользователя, поэтому установка в защищённую папку Windows работает корректно.
 
-## ✨ Features
+## Скачать и установить
 
-### 1. 100% Original Quality (Zero Compression)
-- **Direct Stream Playback**: Videos are never transcoded, compressed, or downscaled upon loading.
-- **Direct3D 11 & Libplacebo**: High-grade GPU decoding pipeline (`d3d11va`, `vo=gpu-next`) powered by mpv. Optimized for NVIDIA GeForce RTX, AMD Radeon, and Intel Arc.
-- **4K, 120 FPS & 10-bit HDR**: Full native playback of high-bitrate files (15+ Mbps, `yuv422p10` / HDR) using **Spline36** scaling and automatic dithering (`dither-depth=auto`).
+1. Откройте раздел [Releases](https://github.com/hasan-aghayev/live-wallpaper/releases) и скачайте `HaS-Live-Wallpaper-win-x64.zip`.
+2. Распакуйте архив в любую папку.
+3. Для обычного portable-запуска запустите `Run.bat` или `LiveWallpaper.exe`.
+4. Для установки ярлыка в меню «Пуск» запустите PowerShell в распакованной папке:
 
-### 2. 🎨 Hardware Desktop Dimming & Color Overlay
-- Real-time dimming opacity slider (**0% to 90%**) to ensure desktop icons and text labels remain 100% readable even behind bright videos.
-- Curated color tones:
-  - ⚫ **Deep Black** (`#000000`)
-  - 🌑 **Slate** (`#0F172A`)
-  - 🔵 **Navy Indigo** (`#0A192F`)
-  - 🟣 **Cyberpunk** (`#1E1035`)
-  - 🟢 **Emerald** (`#062419`)
-  - 🎨 **Custom Color**: Full Windows RGB palette picker.
-- Utilizes hardware-accelerated Windows DWM composition (`WS_EX_TRANSPARENT | WS_EX_LAYERED`). Zero CPU overhead; passes all mouse clicks through directly to the desktop icons.
-
-### 3. 📂 Drag & Drop Simplicity
-- Drag and drop any video file directly from Windows File Explorer into the launcher dropzone.
-- Automatic file validation and instant preview.
-
-### 4. 🔊 Audio & Scaling Controls
-- **Volume**: 0% to 100% slider with a quick Mute checkbox (muted by default for distraction-free work).
-- **Aspect Scaling**:
-  - *Fill Screen (Aspect Fill)*: Edge-to-edge fill without black borders (recommended).
-  - *Fit to Screen (Aspect Fit)*: 100% video frame visible without cropping.
-  - *Stretch to Fill*: Full screen stretch.
-
-### 5. 📥 System Tray & Windows Auto-start
-- Closes and minimizes to the Windows System Tray near the taskbar clock.
-- Right-click tray menu:
-  - 🖥 *Open Launcher*
-  - ⏸ *Pause / Resume*
-  - 🔊 *Mute / Unmute*
-  - ⏹ *Stop Wallpaper*
-  - ❌ *Exit*
-- **"Run live wallpaper on Windows startup"** automatically restores your active wallpaper when your PC boots.
-
----
-
-## 🚀 Quick Start
-
-### Option A: Run Pre-built Release
-1. Download the latest release from the [Releases](https://github.com/hasan-aghayev/live-wallpaper/releases) page.
-2. Extract the archive and run **`Run.bat`** (or `publish\LiveWallpaper.exe`).
-
-### Option B: Build from Source
-#### Prerequisites
-- Windows 10 or Windows 11 (64-bit)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-
-#### Clone & Build
 ```powershell
-# 1. Clone repository
+powershell -ExecutionPolicy Bypass -File .\Install.ps1 -Start
+```
+
+Установка пользовательская и не требует прав администратора. Она копирует приложение в `%LOCALAPPDATA%\Programs\HaS Studio\Live Wallpaper`. Удаление выполняется командой:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Uninstall.ps1
+```
+
+Релиз уже содержит `mpv.exe` и нужные файлы движка, поэтому отдельная установка .NET или mpv для пользователя не нужна.
+
+## Быстрый старт
+
+1. Запустите приложение.
+2. Перетащите видео в большую область или нажмите `Browse Video File`.
+3. Выберите громкость, режим масштабирования и затемнение.
+4. Нажмите `Apply Live Wallpaper`.
+5. Закрытие окна по умолчанию сворачивает приложение в системный трей. Для полного выхода выберите `Exit` в меню иконки возле часов.
+
+## Сборка из исходников
+
+Для сборки нужен Windows 10/11 x64 и [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+```powershell
 git clone https://github.com/hasan-aghayev/live-wallpaper.git
 cd live-wallpaper
 
-# 2. Setup mpv binary (downloads official mpv.exe automatically)
-.\scripts\setup-mpv.ps1
+# Подготовить mpv в корне проекта, если его ещё нет
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-mpv.ps1
 
-# 3. Build release
+# Проверить исходники
 dotnet build -c Release
 
-# 4. Publish distribution
-dotnet publish -c Release -o ./publish
-
-# 5. Run application
-.\Run.bat
+# Собрать готовый self-contained архив для Windows x64
+pwsh -NoProfile -File .\scripts\package.ps1
 ```
 
----
+`package.ps1` создаёт:
 
-## 🏗 Architecture & Under the Hood
+- `dist\HaS-Live-Wallpaper-win-x64.zip` — готовый архив;
+- `dist\HaS-Live-Wallpaper-win-x64.zip.sha256` — checksum SHA-256 для проверки загрузки;
+- `artifacts\publish` — содержимое архива до сжатия.
 
+Если `mpv.exe` отсутствует, `setup-mpv.ps1` и `package.ps1` скачивают 64-битную сборку из [Windows builds by shinchiro](https://github.com/shinchiro/mpv-winbuild-cmake/releases). Для `.7z`-архива нужен 7-Zip. На GitHub Actions он доступен на Windows runner.
+
+## Архитектура
+
+```text
+WPF launcher (UI, settings, tray)
+        |
+        +-- WallpaperWindow (WinForms HWND, no border, no activation)
+        |       |
+        |       +-- DesktopManager -> Progman / WorkerW / SHELLDLL_DefView
+        |       |
+        |       +-- mpv.exe -> Direct3D 11 / gpu-next -> video frame
+        |               |
+        |               +-- named pipe IPC, asynchronous command queue
+        |
+        +-- ConfigManager -> %LOCALAPPDATA%\HaS Studio\Live Wallpaper\config.json
+        +-- shader cache -> %LOCALAPPDATA%\HaS Studio\Live Wallpaper\shaders
+        +-- diagnostic log -> %LOCALAPPDATA%\HaS Studio\Live Wallpaper\debug.log
 ```
-+--------------------------------------------------------------+
-|                    Windows DWM Shell Layer                   |
-+--------------------------------------------------------------+
-  | (Z-Order Top)
-  +--> [Desktop Icons] SHELLDLL_DefView
-  |
-  +--> [Dimming Layer] DesktopOverlayWindow (WS_EX_LAYERED | WS_EX_TRANSPARENT)
-  |
-  +--> [Video Surface] WallpaperWindow (WinForms HWND)
-  |      ^
-  |      |-- D3D11 Swapchain Render
-  |      +-- mpv.exe process (--wid=HWND, --vo=gpu-next)
-  |            ^
-  |            |-- Real-time IPC via Named Pipe (JSON protocol)
-  |
-  +--> [Desktop Background] WorkerW / Progman
-```
 
-- **Zero Airspace Conflict**: Unlike WPF `MediaElement`, mpv renders via Direct3D 11 flip-model swapchain directly into a WinForms window hook behind `SHELLDLL_DefView`.
-- **Inter-Process Communication**: High-frequency commands (volume, seek, pause, stretch) communicate via `\\.\pipe\livewallpaper_mpv_*` using asynchronous JSON-RPC.
+`mpv` запускается как дочерний процесс приложения. При остановке закрывается только этот процесс — другие экземпляры mpv на компьютере не затрагиваются. Команды громкости, паузы и масштабирования отправляются через именованный канал Windows, чтобы не блокировать интерфейс.
 
----
+## Надёжность и ограничения
 
-## 📁 Project Structure
+- Поддерживается только 64-битная Windows. Это связано с x64-сборкой приложения и видеодвижка.
+- Обои зависят от способа, которым текущая версия Windows строит `Progman`/`WorkerW`. Для нестандартных оболочек Windows приложение оставляет диагностическую запись в `debug.log`.
+- Если GPU не поддерживает аппаратный путь, mpv переключается на безопасный режим декодирования. Производительность в этом случае зависит от разрешения видео и CPU.
+- Приложение не конвертирует видео и не создаёт копию медиафайла.
+- Логи не отправляются в интернет.
+
+### Если видео не запускается
+
+1. Проверьте, что файл существует и открывается обычным видеоплеером.
+2. Попробуйте MP4/H.264 как контрольный файл.
+3. Проверьте наличие `mpv.exe` рядом с `LiveWallpaper.exe`.
+4. Посмотрите `%LOCALAPPDATA%\HaS Studio\Live Wallpaper\debug.log`.
+5. Если проблема остаётся, приложите к issue версию Windows, видеокарту, расширение видео и лог. Само видео загружать не нужно.
+
+## Структура проекта
 
 ```text
 LiveWallpaper/
-├── App.xaml / App.xaml.cs          # HaS Studio design tokens & single-instance lifecycle
-├── MainWindow.xaml / .cs           # Main launcher interface & controls
-├── WallpaperWindow.cs              # Desktop canvas window for video rendering
-├── DesktopOverlayWindow.cs         # Hardware layered color & dimming overlay
-├── design.md                       # HaS Studio UI design system specification
-├── app.ico                         # High-resolution multi-size application icon
+├── App.xaml(.cs)             # запуск, single-instance, обработка завершения
+├── MainWindow.xaml(.cs)      # интерфейс и пользовательские настройки
+├── WallpaperWindow.cs        # окно вывода видео
 ├── Core/
-│   ├── DesktopManager.cs           # Win32 desktop hooking (Progman / WorkerW)
-│   ├── MpvPlayer.cs                # Libplacebo Direct3D 11 engine & IPC client
-│   ├── TrayManager.cs              # Windows system tray integration
-│   ├── ConfigManager.cs            # Persistent JSON user preferences
-│   └── AutoStartManager.cs         # Windows registry auto-start controller
+│   ├── AppPaths.cs            # безопасные пути профиля пользователя
+│   ├── ConfigManager.cs       # нормализация и атомарное сохранение настроек
+│   ├── DesktopManager.cs      # интеграция с рабочим столом Windows
+│   ├── MpvPlayer.cs           # изолированный mpv-процесс и IPC
+│   ├── VideoFileValidator.cs  # проверка входного видео
+│   ├── TrayManager.cs         # системный трей
+│   └── AutoStartManager.cs    # запуск вместе с Windows
 ├── scripts/
-│   ├── setup-mpv.ps1               # Automated mpv.exe fetch script
-│   └── setup-mpv.bat               # 1-click batch wrapper for mpv setup
-├── .github/workflows/
-│   └── build.yml                   # GitHub Actions automated CI build
-├── Run.bat                         # Quick launcher script
-├── LICENSE                         # MIT License
-└── README.md                       # Documentation
+│   ├── setup-mpv.ps1          # загрузка mpv для исходной сборки
+│   └── package.ps1            # self-contained публикация и ZIP-релиз
+├── Install.ps1 / Uninstall.ps1
+├── THIRD-PARTY-NOTICES.md
+└── .github/workflows/build.yml
 ```
 
----
+## Лицензии
 
-## 👤 Author & Maintainer
+Исходный код проекта распространяется по [MIT License](LICENSE). В комплекте также поставляется внешний runtime `mpv`; его лицензия и источник сборки описаны в [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-* **Hasan Aghayev**
-  * Email: [hasan.agaev@gmail.com](mailto:hasan.agaev@gmail.com)
-  * Organization: **HaS Studio**
-  * GitHub: [@hasan-aghayev](https://github.com/hasan-aghayev)
+## Автор
 
----
+**Hasan Aghayev** — HaS Studio
 
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-All contributions and pull requests are welcome!
+- GitHub: [@hasan-aghayev](https://github.com/hasan-aghayev)
+- Email: [hasan.agaev@gmail.com](mailto:hasan.agaev@gmail.com)

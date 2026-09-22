@@ -8,6 +8,8 @@ public partial class App : System.Windows.Application
 {
     private static System.Threading.Mutex? _mutex;
 
+    public static bool IsBackgroundLaunch { get; private set; }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -17,6 +19,8 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        IsBackgroundLaunch = e.Args.Any(argument =>
+            string.Equals(argument, "--background", StringComparison.OrdinalIgnoreCase));
         const string mutexName = "Local\\LiveWallpaper_SingleInstance_Mutex";
         try
         {
@@ -65,11 +69,13 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            MpvPlayer.KillAllOrphanInstances();
+            ConfigManager.SaveImmediately();
             _mutex?.ReleaseMutex();
             _mutex?.Dispose();
         }
         catch { }
+
+        DesktopManager.FlushLogs();
 
         base.OnExit(e);
     }

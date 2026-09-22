@@ -68,7 +68,7 @@
                         <TextBlock Text="📥" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,6"/>
                         <TextBlock Text="Drag &amp; drop video file here" FontSize="14" FontWeight="SemiBold" 
                                    Foreground="{StaticResource UiTextBrush}" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Supported formats: MP4, MKV, MOV, WEBM · 1:1 original quality without compression" FontSize="11" 
+                        <TextBlock Text="Supported formats: MP4, MKV, MOV, WEBM, AVI, WMV, M4V and more · no transcoding" FontSize="11"
                                    Foreground="{StaticResource UiTextMutedBrush}" HorizontalAlignment="Center" Margin="0,3,0,12"/>
                         <Button Content="📂 Browse Video File" 
                                 Style="{StaticResource UiButtonSecondary}"

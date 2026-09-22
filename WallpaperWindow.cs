@@ -9,7 +9,7 @@ using Stretch = System.Windows.Media.Stretch;
 
 namespace LiveWallpaper;
 
-public class WallpaperWindow : Form
+public sealed class WallpaperWindow : Form
 {
     private MpvPlayer? _mpvPlayer;
     private bool _isOverlayEnabled;
@@ -42,6 +42,13 @@ public class WallpaperWindow : Form
         return DesktopManager.AttachToDesktop(Handle, out _);
     }
 
+    public void RefreshDesktopBounds()
+    {
+        var bounds = DesktopManager.GetDesktopBounds();
+        Location = new System.Drawing.Point(bounds.X, bounds.Y);
+        Size = new System.Drawing.Size(bounds.Width, bounds.Height);
+    }
+
     public void SetOverlay(bool isEnabled, Color color, double opacity, bool immediate = false)
     {
         _isOverlayEnabled = isEnabled;
@@ -59,14 +66,14 @@ public class WallpaperWindow : Form
         }
     }
 
-    public void LoadAndPlay(string filePath, double volume, bool isMuted, Stretch stretchMode)
+    public bool LoadAndPlay(string filePath, double volume, bool isMuted, Stretch stretchMode)
     {
         DesktopManager.Log($"WallpaperWindow.LoadAndPlay: {filePath}, vol={volume}, muted={isMuted}, stretch={stretchMode}, overlay={_isOverlayEnabled}, opacity={_overlayOpacity}");
         if (!File.Exists(filePath))
         {
             DesktopManager.Log($"Error: file does not exist: {filePath}");
             OnPlaybackError?.Invoke($"File not found: {filePath}");
-            return;
+            return false;
         }
 
         try
@@ -75,16 +82,20 @@ public class WallpaperWindow : Form
             if (_mpvPlayer == null)
             {
                 _mpvPlayer = new MpvPlayer(Handle);
+                _mpvPlayer.PlaybackError += error => OnPlaybackError?.Invoke(error);
             }
 
             _mpvPlayer.Start(filePath, volume, isMuted, stretchMode, _isOverlayEnabled, _overlayColor, _overlayOpacity);
-            IsPlaying = true;
+            IsPlaying = _mpvPlayer.IsRunning;
             DesktopManager.Log("WallpaperWindow: MpvPlayer started playback successfully with GPU overlay");
+            return IsPlaying;
         }
         catch (Exception ex)
         {
             DesktopManager.Log($"Exception in LoadAndPlay: {ex}");
             OnPlaybackError?.Invoke($"Playback error: {ex.Message}");
+            IsPlaying = false;
+            return false;
         }
     }
 

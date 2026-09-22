@@ -138,19 +138,20 @@ public static class DesktopManager
     private const uint RDW_UPDATENOW = 0x0100;
 
     private static readonly BlockingCollection<string> _logQueue = new(new ConcurrentQueue<string>());
+    private static readonly Task _logWriterTask;
 
     static DesktopManager()
     {
-        Task.Run(() =>
+        _logWriterTask = Task.Run(() =>
         {
             try
             {
-                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log");
+                AppPaths.EnsureDataDirectories();
                 foreach (var line in _logQueue.GetConsumingEnumerable())
                 {
                     try
                     {
-                        File.AppendAllText(path, line + Environment.NewLine);
+                        File.AppendAllText(AppPaths.LogFilePath, line + Environment.NewLine);
                     }
                     catch { }
                 }
@@ -163,7 +164,24 @@ public static class DesktopManager
     {
         try
         {
-            _logQueue.TryAdd($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+            if (!_logQueue.IsAddingCompleted)
+            {
+                _logQueue.TryAdd($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+            }
+        }
+        catch { }
+    }
+
+    public static void FlushLogs()
+    {
+        try
+        {
+            if (!_logQueue.IsAddingCompleted)
+            {
+                _logQueue.CompleteAdding();
+            }
+
+            _logWriterTask.Wait(TimeSpan.FromSeconds(1));
         }
         catch { }
     }

@@ -40,7 +40,7 @@ public static class AutoStartManager
             {
                 string exePath = Process.GetCurrentProcess().MainModule?.FileName 
                                  ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LiveWallpaper.exe");
-                key.SetValue(AppName, $"\"{exePath}\"");
+                key.SetValue(AppName, $"\"{exePath}\" --background");
             }
             else
             {
