@@ -74,7 +74,6 @@ public partial class MainWindow : Window
         ChkEnableOverlay.IsChecked = _config.EnableOverlay;
         SliderOverlayOpacity.Value = _config.OverlayOpacity * 100.0;
         TxtOverlayOpacityValue.Text = $"{(int)SliderOverlayOpacity.Value}%";
-        UpdateOverlayPreviewColor(_config.OverlayColor);
         _trayManager.SetPlayState(false);
         _trayManager.SetMuteState(_config.IsMuted);
 
@@ -145,7 +144,7 @@ public partial class MainWindow : Window
 
     private void DropZone_Drop(object sender, System.Windows.DragEventArgs e)
     {
-        DropZone.BorderBrush = new SolidColorBrush(Color.FromRgb(0x43, 0x38, 0xCA));
+        DropZone.BorderBrush = (System.Windows.Media.Brush)FindResource("UiBorderBrush");
 
         if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
         {
@@ -169,14 +168,14 @@ public partial class MainWindow : Window
     {
         if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
         {
-            DropZone.BorderBrush = new SolidColorBrush(Color.FromRgb(0x81, 0x8C, 0xF8));
+            DropZone.BorderBrush = (System.Windows.Media.Brush)FindResource("UiBorderStrongBrush");
             e.Effects = System.Windows.DragDropEffects.Copy;
         }
     }
 
     private void DropZone_DragLeave(object sender, System.Windows.DragEventArgs e)
     {
-        DropZone.BorderBrush = new SolidColorBrush(Color.FromRgb(0x43, 0x38, 0xCA));
+        DropZone.BorderBrush = (System.Windows.Media.Brush)FindResource("UiBorderBrush");
     }
 
     private void BtnApply_Click(object sender, RoutedEventArgs e)
@@ -477,27 +476,7 @@ public partial class MainWindow : Window
         System.Windows.Application.Current.Shutdown();
     }
 
-    private void UpdateOverlayPreviewColor(string hexColor)
-    {
-        try
-        {
-            var mediaColor = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hexColor);
-            BorderCurrentColorPreview.Background = new SolidColorBrush(mediaColor);
-        }
-        catch { }
-    }
-
-    private System.Drawing.Color GetDrawingOverlayColor()
-    {
-        try
-        {
-            return System.Drawing.ColorTranslator.FromHtml(_config.OverlayColor);
-        }
-        catch
-        {
-            return System.Drawing.Color.Black;
-        }
-    }
+    private static System.Drawing.Color GetDrawingOverlayColor() => System.Drawing.Color.Black;
 
     private void ChkEnableOverlay_Changed(object sender, RoutedEventArgs e)
     {
@@ -528,38 +507,4 @@ public partial class MainWindow : Window
         _wallpaperWindow?.SetOverlay(ChkEnableOverlay.IsChecked == true, GetDrawingOverlayColor(), opacity, immediate: false);
     }
 
-    private void BtnColorPreset_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.Button btn && btn.Tag is string hex)
-        {
-            SetOverlayColorHex(hex);
-        }
-    }
-
-    private void BtnCustomColor_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new System.Windows.Forms.ColorDialog();
-        dialog.FullOpen = true;
-        dialog.Color = GetDrawingOverlayColor();
-
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-        {
-            string hex = $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}";
-            SetOverlayColorHex(hex);
-        }
-    }
-
-    private void SetOverlayColorHex(string hex)
-    {
-        _config.OverlayColor = hex;
-        ConfigManager.Save(_config);
-        UpdateOverlayPreviewColor(hex);
-
-        if (ChkEnableOverlay.IsChecked != true)
-        {
-            ChkEnableOverlay.IsChecked = true;
-        }
-
-        _wallpaperWindow?.SetOverlay(true, GetDrawingOverlayColor(), SliderOverlayOpacity.Value / 100.0, immediate: true);
-    }
 }

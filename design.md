@@ -30,13 +30,15 @@ HaS Studio UI is dense, focused, and calm, tailored for professional tools. The 
 
 ## Controls & Components
 
-- `ui-button-primary`: Main filled action with accent glow and bold contrast.
+- `ui-button-primary`: Main filled action with a clear cyan accent and bold contrast.
 - `ui-button-secondary`: Outlined secondary button.
 - `ui-button-danger`: Destructive / stop action.
-- `ui-chip-button`: Compact pill / chip selector for filters, tones, and presets.
 - `ui-combobox`: Dropdown with dark inset list and soft cyan active selection state.
 - `ui-card`: Grouped surface container with subtle border.
-- `ui-card-inset`: Recessed sub-panel for focused operations.
+
+The main screen uses one primary settings surface. Video selection and desktop
+dimming are kept as simple sections instead of nested cards. Desktop dimming
+uses a black overlay; the user controls only its opacity.
 
 ---
 

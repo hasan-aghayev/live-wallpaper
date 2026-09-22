@@ -103,12 +103,9 @@ public static class ConfigManager
             catch { config.LastVideoPath = null; }
         }
 
-        if (string.IsNullOrWhiteSpace(config.OverlayColor)
-            || !config.OverlayColor.StartsWith("#", StringComparison.Ordinal)
-            || config.OverlayColor.Length != 7)
-        {
-            config.OverlayColor = "#000000";
-        }
+        // Overlay color is intentionally fixed to black. Keep the property in
+        // the config model for backwards compatibility with older releases.
+        config.OverlayColor = "#000000";
 
         return config;
     }
