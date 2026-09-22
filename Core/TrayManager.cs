@@ -20,20 +20,20 @@ public class TrayManager : IDisposable
     {
         var contextMenu = new ContextMenuStrip();
 
-        var openItem = new ToolStripMenuItem("🖥 Open Launcher");
+        var openItem = new ToolStripMenuItem("Open launcher");
         openItem.Click += (s, e) => OnOpenRequested?.Invoke();
         openItem.Font = new Font(openItem.Font, FontStyle.Bold);
 
-        _togglePlayMenuItem = new ToolStripMenuItem("⏸ Pause");
+        _togglePlayMenuItem = new ToolStripMenuItem("Pause");
         _togglePlayMenuItem.Click += (s, e) => OnTogglePlayRequested?.Invoke();
 
-        _toggleMuteMenuItem = new ToolStripMenuItem("🔊 Unmute");
+        _toggleMuteMenuItem = new ToolStripMenuItem("Unmute");
         _toggleMuteMenuItem.Click += (s, e) => OnToggleMuteRequested?.Invoke();
 
-        var stopItem = new ToolStripMenuItem("⏹ Stop Wallpaper");
+        var stopItem = new ToolStripMenuItem("Stop wallpaper");
         stopItem.Click += (s, e) => OnStopRequested?.Invoke();
 
-        var exitItem = new ToolStripMenuItem("❌ Exit");
+        var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += (s, e) => OnExitRequested?.Invoke();
 
         contextMenu.Items.Add(openItem);
@@ -76,12 +76,12 @@ public class TrayManager : IDisposable
 
     public void SetPlayState(bool isPlaying)
     {
-        _togglePlayMenuItem.Text = isPlaying ? "⏸ Pause" : "▶ Resume";
+        _togglePlayMenuItem.Text = isPlaying ? "Pause" : "Resume";
     }
 
     public void SetMuteState(bool isMuted)
     {
-        _toggleMuteMenuItem.Text = isMuted ? "🔊 Unmute" : "🔇 Mute";
+        _toggleMuteMenuItem.Text = isMuted ? "Unmute" : "Mute";
     }
 
     public void ShowNotification(string title, string text)

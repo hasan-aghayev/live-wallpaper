@@ -57,13 +57,13 @@
 
             <!-- Buttons -->
             <Style x:Key="UiButtonPrimary" TargetType="Button">
-                <Setter Property="Height" Value="32"/>
+                <Setter Property="Height" Value="40"/>
                 <Setter Property="Background" Value="{StaticResource UiAccentBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource UiTextOnAccentBrush}"/>
-                <Setter Property="FontFamily" Value="{StaticResource UiFontMono}"/>
-                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="12"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Padding" Value="14,0"/>
+                <Setter Property="Padding" Value="20,0"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="BorderBrush" Value="{StaticResource UiAccentBrush}"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -92,13 +92,13 @@
             </Style>
 
             <Style x:Key="UiButtonSecondary" TargetType="Button">
-                <Setter Property="Height" Value="32"/>
+                <Setter Property="Height" Value="38"/>
                 <Setter Property="Background" Value="{StaticResource UiSurfaceRaisedBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource UiTextSecondaryBrush}"/>
-                <Setter Property="FontFamily" Value="{StaticResource UiFontMono}"/>
-                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="12"/>
                 <Setter Property="FontWeight" Value="Medium"/>
-                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="Padding" Value="18,0"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="BorderBrush" Value="{StaticResource UiBorderBrush}"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -128,13 +128,13 @@
             </Style>
 
             <Style x:Key="UiButtonDanger" TargetType="Button">
-                <Setter Property="Height" Value="32"/>
+                <Setter Property="Height" Value="38"/>
                 <Setter Property="Background" Value="{StaticResource UiSurfaceRaisedBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource UiDangerBrush}"/>
-                <Setter Property="FontFamily" Value="{StaticResource UiFontMono}"/>
-                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="12"/>
                 <Setter Property="FontWeight" Value="Medium"/>
-                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="Padding" Value="18,0"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="BorderBrush" Value="{StaticResource UiBorderBrush}"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -164,14 +164,14 @@
             </Style>
 
             <Style x:Key="UiChipButton" TargetType="Button">
-                <Setter Property="Height" Value="26"/>
+                <Setter Property="Height" Value="32"/>
                 <Setter Property="Background" Value="{StaticResource UiSurfaceInsetBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource UiTextSecondaryBrush}"/>
-                <Setter Property="FontFamily" Value="{StaticResource UiFontMono}"/>
-                <Setter Property="FontSize" Value="10"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="11"/>
                 <Setter Property="FontWeight" Value="Medium"/>
-                <Setter Property="Padding" Value="8,0"/>
-                <Setter Property="Margin" Value="0,0,6,0"/>
+                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="BorderBrush" Value="{StaticResource UiBorderBrush}"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -189,6 +189,49 @@
                                     <Setter TargetName="bd" Property="Background" Value="{StaticResource UiAccentSoftBrush}"/>
                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource UiBorderStrongBrush}"/>
                                     <Setter Property="Foreground" Value="{StaticResource UiTextBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Compact, consistent dark checkbox -->
+            <Style x:Key="UiCheckBox" TargetType="CheckBox">
+                <Setter Property="Foreground" Value="{StaticResource UiTextBrush}"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <StackPanel Orientation="Horizontal">
+                                <Border x:Name="box" Width="18" Height="18" CornerRadius="5"
+                                        Background="{StaticResource UiControlBrush}"
+                                        BorderBrush="{StaticResource UiBorderBrush}" BorderThickness="1"
+                                        VerticalAlignment="Center">
+                                    <Path x:Name="check" Data="M 3,9 L 7,13 L 15,4" Stroke="{StaticResource UiTextOnAccentBrush}"
+                                          StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Visibility="Collapsed" Stretch="Fill" Margin="2"/>
+                                </Border>
+                                <ContentPresenter Margin="9,0,0,0" VerticalAlignment="Center"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="box" Property="Background" Value="{StaticResource UiAccentBrush}"/>
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource UiAccentBrush}"/>
+                                    <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource UiBorderStrongBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="box" Property="Opacity" Value="0.4"/>
+                                    <Setter Property="Cursor" Value="Arrow"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -224,14 +267,14 @@
 
             <Style x:Key="UiComboBoxItem" TargetType="ComboBoxItem">
                 <Setter Property="SnapsToDevicePixels" Value="True"/>
-                <Setter Property="Padding" Value="10,7"/>
+                <Setter Property="Padding" Value="12,8"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Foreground" Value="{StaticResource UiTextBrush}"/>
-                <Setter Property="FontFamily" Value="{StaticResource UiFontMono}"/>
-                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ComboBoxItem">
@@ -257,15 +300,15 @@
             </Style>
 
             <Style x:Key="UiComboBox" TargetType="ComboBox">
-                <Setter Property="Height" Value="32"/>
+                <Setter Property="Height" Value="38"/>
                 <Setter Property="Background" Value="{StaticResource UiControlBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource UiTextBrush}"/>
                 <Setter Property="BorderBrush" Value="{StaticResource UiBorderBrush}"/>
                 <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="FontFamily" Value="{StaticResource UiFontMono}"/>
-                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+                <Setter Property="FontSize" Value="12"/>
                 <Setter Property="FontWeight" Value="Medium"/>
-                <Setter Property="Padding" Value="10,0,26,0"/>
+                <Setter Property="Padding" Value="14,0,34,0"/>
                 <Setter Property="ItemContainerStyle" Value="{StaticResource UiComboBoxItem}"/>
                 <Setter Property="Template">
                     <Setter.Value>
@@ -327,7 +370,7 @@
                 <Setter Property="BorderBrush" Value="{StaticResource UiBorderBrush}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="{StaticResource UiRadiusLg}"/>
-                <Setter Property="Padding" Value="14"/>
+                <Setter Property="Padding" Value="20"/>
             </Style>
 
             <Style x:Key="UiCardInset" TargetType="Border">
@@ -335,7 +378,7 @@
                 <Setter Property="BorderBrush" Value="{StaticResource UiBorderBrush}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="{StaticResource UiRadiusMd}"/>
-                <Setter Property="Padding" Value="12"/>
+                <Setter Property="Padding" Value="16"/>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

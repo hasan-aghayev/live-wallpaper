@@ -122,7 +122,7 @@ public partial class MainWindow : Window
         _selectedVideoPath = path;
         TxtSelectedFileName.Text = Path.GetFileName(path);
         TxtSelectedFilePath.Text = path;
-        TxtFooterMessage.Text = $"Selected file: {Path.GetFileName(path)}";
+        TxtFooterMessage.Text = $"Selected: {Path.GetFileName(path)}";
 
         _config.LastVideoPath = path;
         ConfigManager.Save(_config);
@@ -208,7 +208,7 @@ public partial class MainWindow : Window
                 bool attached = _wallpaperWindow.AttachToDesktop();
                 if (!attached)
                 {
-                    TxtFooterMessage.Text = "Warning: Could not hook to WorkerW. Running in desktop background mode.";
+                    TxtFooterMessage.Text = "Desktop integration unavailable. Running in background mode.";
                 }
             }
 
@@ -223,13 +223,13 @@ public partial class MainWindow : Window
                 return;
             }
 
-            UpdateStatus(true, "Wallpaper Active");
+            UpdateStatus(true, "Active");
             BtnPauseResume.IsEnabled = true;
-            BtnPauseResume.Content = "⏸ Pause";
+            BtnPauseResume.Content = "Pause";
             BtnStop.IsEnabled = true;
             _trayManager.SetPlayState(true);
 
-            TxtFooterMessage.Text = $"Live wallpaper running: {Path.GetFileName(_selectedVideoPath)}";
+            TxtFooterMessage.Text = "Wallpaper active";
         }
         catch (Exception ex)
         {
@@ -239,7 +239,7 @@ public partial class MainWindow : Window
 
     private void HandlePlaybackError(string message)
     {
-        UpdateStatus(false, "Video Error");
+        UpdateStatus(false, "Error");
         BtnPauseResume.IsEnabled = false;
         BtnStop.IsEnabled = _wallpaperWindow != null;
         TxtFooterMessage.Text = $"Error: {message}";
@@ -259,18 +259,18 @@ public partial class MainWindow : Window
         if (_wallpaperWindow.IsPlaying)
         {
             _wallpaperWindow.Pause();
-            BtnPauseResume.Content = "▶ Resume";
+            BtnPauseResume.Content = "Resume";
             UpdateStatus(false, "Paused", true);
             _trayManager.SetPlayState(false);
-            TxtFooterMessage.Text = "Playback paused.";
+            TxtFooterMessage.Text = "Playback paused";
         }
         else
         {
             _wallpaperWindow.Play();
-            BtnPauseResume.Content = "⏸ Pause";
-            UpdateStatus(true, "Wallpaper Active");
+            BtnPauseResume.Content = "Pause";
+            UpdateStatus(true, "Active");
             _trayManager.SetPlayState(true);
-            TxtFooterMessage.Text = "Playback resumed.";
+            TxtFooterMessage.Text = "Wallpaper active";
         }
     }
 
@@ -291,10 +291,10 @@ public partial class MainWindow : Window
 
         Task.Run(() => DesktopManager.RefreshDesktop());
 
-        UpdateStatus(false, "Wallpaper Inactive");
+        UpdateStatus(false, "Inactive");
         BtnPauseResume.IsEnabled = false;
         BtnStop.IsEnabled = false;
-        TxtFooterMessage.Text = "Live wallpaper stopped. Standard desktop restored.";
+        TxtFooterMessage.Text = "Wallpaper stopped";
     }
 
     private void ToggleMute()
