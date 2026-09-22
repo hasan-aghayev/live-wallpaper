@@ -423,6 +423,9 @@ public sealed class MpvPlayer : IDisposable
         try
         {
             string shaderPath = EnsureOverlayShaderFile(_currentOverlayColor, _currentOverlayOpacity);
+            // The shader path is stable between changes. Clear the current
+            // shader first so mpv reloads the updated opacity immediately.
+            SendCommand("change-list", "glsl-shaders", "clr", "");
             SendCommand("change-list", "glsl-shaders", "set", shaderPath.Replace('\\', '/'));
         }
         catch (Exception ex)

@@ -198,8 +198,12 @@
             <TextBlock x:Name="TxtFooterMessage" Text="Ready"
                        FontSize="11" Foreground="{StaticResource UiTextSecondaryBrush}"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-            <Button Grid.Column="1" Content="Hide to tray" Style="{StaticResource UiButtonSecondary}"
-                    Padding="16,0" Click="BtnMinimizeToTray_Click" Margin="18,0,0,0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="Save settings" Style="{StaticResource UiButtonPrimary}"
+                        MinWidth="126" Click="BtnSaveSettings_Click"/>
+                <Button Content="Hide to tray" Style="{StaticResource UiButtonSecondary}"
+                        Padding="16,0" Click="BtnMinimizeToTray_Click" Margin="10,0,0,0"/>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

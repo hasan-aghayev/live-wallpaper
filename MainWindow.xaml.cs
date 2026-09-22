@@ -446,6 +446,11 @@ public partial class MainWindow : Window
         _trayManager.ShowNotification("Live Wallpaper Launcher", "Application minimized to system tray. Live wallpaper is still running.");
     }
 
+    private void BtnSaveSettings_Click(object sender, RoutedEventArgs e)
+    {
+        SaveAndApplySettings(showMessage: true);
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
         if (_isExiting)
@@ -477,6 +482,40 @@ public partial class MainWindow : Window
     }
 
     private static System.Drawing.Color GetDrawingOverlayColor() => System.Drawing.Color.Black;
+
+    private void SaveAndApplySettings(bool showMessage = false)
+    {
+        if (_config == null)
+            return;
+
+        _config.Volume = SliderVolume.Value / 100.0;
+        _config.IsMuted = ChkMute.IsChecked == true;
+        _config.StretchMode = (CmbStretch.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Fill";
+        _config.EnableOverlay = ChkEnableOverlay.IsChecked == true;
+        _config.OverlayOpacity = SliderOverlayOpacity.Value / 100.0;
+
+        ConfigManager.Save(_config);
+        ConfigManager.SaveImmediately();
+
+        if (_wallpaperWindow != null)
+        {
+            _wallpaperWindow.SetVolume(_config.Volume);
+            _wallpaperWindow.SetMuted(_config.IsMuted);
+            _wallpaperWindow.SetStretch(GetSelectedStretch());
+            _wallpaperWindow.SetOverlay(
+                _config.EnableOverlay,
+                GetDrawingOverlayColor(),
+                _config.OverlayOpacity,
+                immediate: true);
+        }
+
+        if (showMessage)
+        {
+            TxtFooterMessage.Text = _wallpaperWindow == null
+                ? "Settings saved"
+                : "Settings saved and applied";
+        }
+    }
 
     private void ChkEnableOverlay_Changed(object sender, RoutedEventArgs e)
     {
